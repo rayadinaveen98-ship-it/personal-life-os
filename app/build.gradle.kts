@@ -8,12 +8,12 @@ plugins {
 
 android {
     namespace = "com.navin.personallifeos"
-    compileSdk = 37
+    compileSdk = 36
 
     defaultConfig {
         applicationId = "com.navin.personallifeos"
         minSdk = 24
-        targetSdk = 37
+        targetSdk = 36
         versionCode = 2
         versionName = "0.2.0-alpha"
 
