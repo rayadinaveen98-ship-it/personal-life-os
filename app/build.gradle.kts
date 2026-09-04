@@ -70,8 +70,8 @@ dependencies {
 
     implementation("androidx.navigation:navigation-compose:2.10.0")
 
-    implementation("com.google.dagger:hilt-android:2.60.1")
-    kapt("com.google.dagger:hilt-compiler:2.60.1")
+    implementation("com.google.dagger:hilt-android:2.58")
+    kapt("com.google.dagger:hilt-compiler:2.58")
     implementation("androidx.hilt:hilt-navigation-compose:1.4.0")
 
     implementation("androidx.room:room-runtime:2.8.4")
