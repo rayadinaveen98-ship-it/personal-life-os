@@ -16,8 +16,8 @@ android {
         applicationId = "com.navin.personallifeos"
         minSdk = 24
         targetSdk = 36
-        versionCode = 7
-        versionName = "0.7.0-capture-intelligence-alpha"
+        versionCode = 8
+        versionName = "0.8.0-interaction-completion-alpha"
 
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
         vectorDrawables.useSupportLibrary = true
