@@ -4,6 +4,7 @@ import android.content.Context
 import androidx.datastore.preferences.core.booleanPreferencesKey
 import androidx.datastore.preferences.core.edit
 import androidx.datastore.preferences.core.stringPreferencesKey
+import androidx.datastore.preferences.core.stringSetPreferencesKey
 import androidx.datastore.preferences.preferencesDataStore
 import dagger.hilt.android.qualifiers.ApplicationContext
 import kotlinx.coroutines.flow.Flow
@@ -20,6 +21,11 @@ class AppPreferences @Inject constructor(
     private object Keys {
         val OnboardingComplete = booleanPreferencesKey("onboarding_complete")
         val ThemeMode = stringPreferencesKey("theme_mode")
+        val PreferredName = stringPreferencesKey("preferred_name")
+        val FocusAreas = stringSetPreferencesKey("focus_areas")
+        val LifeAreas = stringSetPreferencesKey("life_areas")
+        val MorningBrief = booleanPreferencesKey("morning_brief")
+        val EveningReflection = booleanPreferencesKey("evening_reflection")
     }
 
     val onboardingComplete: Flow<Boolean> = context.dataStore.data
@@ -27,6 +33,38 @@ class AppPreferences @Inject constructor(
 
     val themeMode: Flow<String> = context.dataStore.data
         .map { it[Keys.ThemeMode] ?: "system" }
+
+    val preferredName: Flow<String> = context.dataStore.data
+        .map { it[Keys.PreferredName]?.takeIf(String::isNotBlank) ?: "Navin" }
+
+    val focusAreas: Flow<Set<String>> = context.dataStore.data
+        .map { it[Keys.FocusAreas] ?: emptySet() }
+
+    val lifeAreas: Flow<Set<String>> = context.dataStore.data
+        .map { it[Keys.LifeAreas] ?: emptySet() }
+
+    val morningBrief: Flow<Boolean> = context.dataStore.data
+        .map { it[Keys.MorningBrief] ?: true }
+
+    val eveningReflection: Flow<Boolean> = context.dataStore.data
+        .map { it[Keys.EveningReflection] ?: true }
+
+    suspend fun completeOnboarding(
+        name: String,
+        selectedFocusAreas: Set<String>,
+        selectedLifeAreas: Set<String>,
+        enableMorningBrief: Boolean,
+        enableEveningReflection: Boolean,
+    ) {
+        context.dataStore.edit {
+            it[Keys.PreferredName] = name.ifBlank { "Navin" }
+            it[Keys.FocusAreas] = selectedFocusAreas
+            it[Keys.LifeAreas] = selectedLifeAreas
+            it[Keys.MorningBrief] = enableMorningBrief
+            it[Keys.EveningReflection] = enableEveningReflection
+            it[Keys.OnboardingComplete] = true
+        }
+    }
 
     suspend fun setOnboardingComplete(value: Boolean) {
         context.dataStore.edit { it[Keys.OnboardingComplete] = value }
