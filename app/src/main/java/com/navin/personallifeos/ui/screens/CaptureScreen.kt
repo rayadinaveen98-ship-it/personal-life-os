@@ -26,9 +26,6 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonDefaults
-import androidx.compose.material3.Icon
-import androidx.compose.material3.IconButton
-import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
@@ -68,10 +65,11 @@ fun CaptureScreen(
 ) {
     var text by remember { mutableStateOf("") }
     val suggestion by viewModel.suggestion.collectAsState()
+    val resolvedProjectTitle by viewModel.resolvedProjectTitle.collectAsState()
     val saved by viewModel.saved.collectAsState()
     val message by viewModel.message.collectAsState()
 
-    LaunchedEffect(saved) {
+    LaunchedEffect(saved, message) {
         if (saved && message == null) onClose()
     }
 
@@ -86,9 +84,29 @@ fun CaptureScreen(
             CaptureTopButton("×", onClose)
         }
 
-        Text("UNIVERSAL CAPTURE", fontSize = 12.sp, letterSpacing = 1.7.sp, color = Color(0xFF7B786F), fontWeight = FontWeight.Bold, modifier = Modifier.padding(top = 18.dp))
-        Text("What’s on your mind?", fontSize = 34.sp, lineHeight = 36.sp, fontWeight = FontWeight.ExtraBold, letterSpacing = (-0.7).sp, modifier = Modifier.padding(top = 7.dp))
-        Text("Type it, speak it, or drop it here. I’ll help organize the rest.", fontSize = 14.sp, lineHeight = 20.sp, color = Color(0xFF6F6C64), modifier = Modifier.padding(top = 8.dp, bottom = 20.dp))
+        Text(
+            "UNIVERSAL CAPTURE",
+            fontSize = 12.sp,
+            letterSpacing = 1.7.sp,
+            color = Color(0xFF7B786F),
+            fontWeight = FontWeight.Bold,
+            modifier = Modifier.padding(top = 18.dp),
+        )
+        Text(
+            "Say it naturally.",
+            fontSize = 34.sp,
+            lineHeight = 36.sp,
+            fontWeight = FontWeight.ExtraBold,
+            letterSpacing = (-0.7).sp,
+            modifier = Modifier.padding(top = 7.dp),
+        )
+        Text(
+            "I’ll pull out the action, date, reminder, project and context — then you can correct anything before saving.",
+            fontSize = 14.sp,
+            lineHeight = 20.sp,
+            color = Color(0xFF6F6C64),
+            modifier = Modifier.padding(top = 8.dp, bottom = 20.dp),
+        )
 
         Surface(
             modifier = Modifier.fillMaxWidth(),
@@ -101,11 +119,20 @@ fun CaptureScreen(
                 Text("Capture anything.", fontSize = 18.sp, lineHeight = 25.sp, fontWeight = FontWeight.Bold)
                 OutlinedTextField(
                     value = text,
-                    onValueChange = { text = it },
+                    onValueChange = {
+                        text = it
+                        if (suggestion != null) viewModel.editAgain()
+                    },
                     modifier = Modifier.fillMaxWidth().padding(top = 16.dp).heightIn(min = 138.dp),
                     minLines = 5,
                     shape = RoundedCornerShape(18.dp),
-                    placeholder = { Text("Remind me tomorrow at 10 AM to finish the CINEMA import parser", fontSize = 16.sp, lineHeight = 24.sp) },
+                    placeholder = {
+                        Text(
+                            "Remind me tomorrow at 10 AM to finish the CINEMA import parser",
+                            fontSize = 16.sp,
+                            lineHeight = 24.sp,
+                        )
+                    },
                     colors = androidx.compose.material3.OutlinedTextFieldDefaults.colors(
                         unfocusedContainerColor = Color(0xFFF7F3EA),
                         focusedContainerColor = Color(0xFFF7F3EA),
@@ -113,9 +140,16 @@ fun CaptureScreen(
                         focusedBorderColor = Moss,
                     ),
                 )
-                Row(modifier = Modifier.fillMaxWidth().padding(top = 14.dp), horizontalArrangement = Arrangement.SpaceBetween, verticalAlignment = Alignment.CenterVertically) {
-                    VoiceCaptureControl(onResult = { text = it })
-                    Text("Natural language", fontSize = 12.sp, color = Color(0xFF8C887E))
+                Row(
+                    modifier = Modifier.fillMaxWidth().padding(top = 14.dp),
+                    horizontalArrangement = Arrangement.SpaceBetween,
+                    verticalAlignment = Alignment.CenterVertically,
+                ) {
+                    VoiceCaptureControl(onResult = {
+                        text = it
+                        if (suggestion != null) viewModel.editAgain()
+                    })
+                    Text("On-device rules · private", fontSize = 11.sp, color = Color(0xFF8C887E))
                 }
             }
         }
@@ -124,50 +158,126 @@ fun CaptureScreen(
         if (current != null) {
             Surface(
                 modifier = Modifier.fillMaxWidth().padding(top = 18.dp),
-                shape = RoundedCornerShape(20.dp),
+                shape = RoundedCornerShape(22.dp),
                 color = Color(0xFFEEF0E9),
                 border = androidx.compose.foundation.BorderStroke(1.dp, Moss.copy(alpha = 0.14f)),
             ) {
                 Column(modifier = Modifier.padding(16.dp)) {
-                    Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween, verticalAlignment = Alignment.CenterVertically) {
-                        Text("UNDERSTOOD", fontSize = 12.sp, letterSpacing = 1.4.sp, fontWeight = FontWeight.ExtraBold, color = Color(0xFF65715F))
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        horizontalArrangement = Arrangement.SpaceBetween,
+                        verticalAlignment = Alignment.CenterVertically,
+                    ) {
                         Text(
-                            current.kind.name.lowercase().replaceFirstChar { it.uppercase() },
+                            "UNDERSTOOD",
+                            fontSize = 12.sp,
+                            letterSpacing = 1.4.sp,
+                            fontWeight = FontWeight.ExtraBold,
+                            color = Color(0xFF65715F),
+                        )
+                        Text(
+                            current.kind.displayName(),
                             fontSize = 12.sp,
                             fontWeight = FontWeight.Bold,
                             color = Color(0xFF53644F),
-                            modifier = Modifier.background(Color(0xFFDCE4D7), RoundedCornerShape(999.dp)).padding(horizontal = 10.dp, vertical = 7.dp),
+                            modifier = Modifier
+                                .background(Color(0xFFDCE4D7), RoundedCornerShape(999.dp))
+                                .padding(horizontal = 10.dp, vertical = 7.dp),
                         )
                     }
-                    current.reminderAt?.let { CaptureDetectedRow("◷", SimpleDateFormat("EEE · h:mm a", Locale.getDefault()).format(Date(it)), "Exact reminder") }
-                    CaptureDetectedRow("✓", current.title, "Suggested action")
-                    CaptureDetectedRow("▦", "No linked project yet", "Optional context")
+
+                    CaptureDetectedRow("✓", current.title, detectedTitleMeta(current.kind))
+
+                    current.reminderAt?.let {
+                        CaptureDetectedRow(
+                            "◷",
+                            captureDateTime(it),
+                            "Exact reminder",
+                        )
+                    } ?: current.dueAt?.let {
+                        CaptureDetectedRow(
+                            "◷",
+                            captureDateTime(it),
+                            "Due date · no alarm",
+                        )
+                    }
+
+                    val projectLabel = resolvedProjectTitle ?: current.projectHint
+                    if (projectLabel != null) {
+                        CaptureDetectedRow(
+                            "▦",
+                            projectLabel,
+                            if (resolvedProjectTitle != null) "Linked project" else "Project hint · no exact match yet",
+                        )
+                    }
+
+                    if (current.priority != 0) {
+                        CaptureDetectedRow(
+                            "!",
+                            if (current.priority > 0) "High priority" else "Low priority",
+                            "Detected from your wording",
+                        )
+                    }
+
+                    current.durationMinutes?.let {
+                        CaptureDetectedRow("↗", durationLabel(it), "Activity duration")
+                    }
                 }
             }
 
-            Text("Add context", fontSize = 13.sp, fontWeight = FontWeight.ExtraBold, modifier = Modifier.padding(top = 18.dp, bottom = 10.dp))
-            Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                ContextChip("Project", true)
-                ContextChip("Priority", false)
-                ContextChip("Note", false)
-                ContextChip("Repeat", false)
+            Text(
+                "Is the type right?",
+                fontSize = 13.sp,
+                fontWeight = FontWeight.ExtraBold,
+                modifier = Modifier.padding(top = 18.dp, bottom = 10.dp),
+            )
+            Row(horizontalArrangement = Arrangement.spacedBy(7.dp)) {
+                CaptureKindChip("Task", CaptureKind.TASK, current.kind, viewModel::selectKind, Modifier.weight(1f))
+                CaptureKindChip("Reminder", CaptureKind.REMINDER, current.kind, viewModel::selectKind, Modifier.weight(1f))
+                CaptureKindChip("Idea", CaptureKind.IDEA, current.kind, viewModel::selectKind, Modifier.weight(1f))
+            }
+            Row(horizontalArrangement = Arrangement.spacedBy(7.dp), modifier = Modifier.padding(top = 7.dp)) {
+                CaptureKindChip("Journal", CaptureKind.DIARY, current.kind, viewModel::selectKind, Modifier.weight(1f))
+                CaptureKindChip("Activity", CaptureKind.ACTIVITY, current.kind, viewModel::selectKind, Modifier.weight(1f))
             }
 
             Button(
                 onClick = viewModel::save,
-                modifier = Modifier.fillMaxWidth().padding(top = 22.dp),
+                modifier = Modifier.fillMaxWidth().padding(top = 20.dp),
                 shape = RoundedCornerShape(18.dp),
                 colors = ButtonDefaults.buttonColors(containerColor = Moss),
-            ) { Text("Save to my day", fontSize = 15.sp, fontWeight = FontWeight.ExtraBold, modifier = Modifier.padding(vertical = 7.dp)) }
+            ) {
+                Text(
+                    saveLabel(current.kind),
+                    fontSize = 15.sp,
+                    fontWeight = FontWeight.ExtraBold,
+                    modifier = Modifier.padding(vertical = 7.dp),
+                )
+            }
 
-            message?.let { Text(it, fontSize = 11.sp, lineHeight = 15.sp, color = InkMuted, modifier = Modifier.padding(top = 8.dp)) }
-            Text(
-                "Edit capture",
-                fontSize = 12.sp,
-                color = Moss,
-                fontWeight = FontWeight.Bold,
-                modifier = Modifier.padding(top = 10.dp),
-            )
+            message?.let {
+                Surface(
+                    modifier = Modifier.fillMaxWidth().padding(top = 10.dp),
+                    shape = RoundedCornerShape(15.dp),
+                    color = LavenderSoft,
+                ) {
+                    Text(it, fontSize = 11.5.sp, lineHeight = 16.sp, color = InkMuted, modifier = Modifier.padding(12.dp))
+                }
+            }
+
+            Surface(
+                onClick = viewModel::editAgain,
+                color = Color.Transparent,
+                modifier = Modifier.padding(top = 5.dp),
+            ) {
+                Text(
+                    "Edit & understand again",
+                    fontSize = 12.sp,
+                    color = Moss,
+                    fontWeight = FontWeight.Bold,
+                    modifier = Modifier.padding(vertical = 8.dp),
+                )
+            }
         } else {
             Button(
                 onClick = { viewModel.classify(text) },
@@ -175,13 +285,27 @@ fun CaptureScreen(
                 modifier = Modifier.fillMaxWidth().padding(top = 18.dp),
                 shape = RoundedCornerShape(18.dp),
                 colors = ButtonDefaults.buttonColors(containerColor = Moss),
-            ) { Text("Understand this", fontWeight = FontWeight.Bold, modifier = Modifier.padding(vertical = 6.dp)) }
+            ) {
+                Text("Understand this", fontWeight = FontWeight.Bold, modifier = Modifier.padding(vertical = 6.dp))
+            }
         }
 
-        Surface(modifier = Modifier.fillMaxWidth().padding(top = 20.dp), shape = RoundedCornerShape(20.dp), color = Color(0xFFF1ECE3)) {
+        Surface(
+            modifier = Modifier.fillMaxWidth().padding(top = 20.dp),
+            shape = RoundedCornerShape(20.dp),
+            color = Color(0xFFF1ECE3),
+        ) {
             Column(modifier = Modifier.padding(16.dp)) {
-                Text("YOU CAN ALSO SAY", fontSize = 11.sp, letterSpacing = 1.2.sp, color = Color(0xFF8B857B), fontWeight = FontWeight.ExtraBold)
-                Text("“Worked on Blender for 45 minutes.”", fontSize = 13.sp, lineHeight = 19.sp, color = Color(0xFF625E57), modifier = Modifier.padding(top = 8.dp))
+                Text(
+                    "TRY SAYING",
+                    fontSize = 11.sp,
+                    letterSpacing = 1.2.sp,
+                    color = Color(0xFF8B857B),
+                    fontWeight = FontWeight.ExtraBold,
+                )
+                Text("“Tomorrow at 9 AM work on CINEMA.”", fontSize = 13.sp, lineHeight = 19.sp, color = Color(0xFF625E57), modifier = Modifier.padding(top = 8.dp))
+                Text("“Finish the parser by Monday.”", fontSize = 13.sp, lineHeight = 19.sp, color = Color(0xFF625E57), modifier = Modifier.padding(top = 6.dp))
+                Text("“Worked on Blender for 45 minutes.”", fontSize = 13.sp, lineHeight = 19.sp, color = Color(0xFF625E57), modifier = Modifier.padding(top = 6.dp))
                 Text("“Idea: make weekly reviews more visual.”", fontSize = 13.sp, lineHeight = 19.sp, color = Color(0xFF625E57), modifier = Modifier.padding(top = 6.dp))
                 Text("“Today felt productive. Save this to my journal.”", fontSize = 13.sp, lineHeight = 19.sp, color = Color(0xFF625E57), modifier = Modifier.padding(top = 6.dp))
             }
@@ -191,15 +315,28 @@ fun CaptureScreen(
 
 @Composable
 private fun CaptureTopButton(label: String, onClick: () -> Unit) {
-    Surface(onClick = onClick, modifier = Modifier.size(38.dp), shape = RoundedCornerShape(13.dp), color = CardCream, shadowElevation = 2.dp) {
+    Surface(
+        onClick = onClick,
+        modifier = Modifier.size(38.dp),
+        shape = RoundedCornerShape(13.dp),
+        color = CardCream,
+        shadowElevation = 2.dp,
+    ) {
         Box(contentAlignment = Alignment.Center) { Text(label, fontSize = 20.sp) }
     }
 }
 
 @Composable
 private fun CaptureDetectedRow(icon: String, title: String, meta: String) {
-    Row(modifier = Modifier.fillMaxWidth().padding(top = 10.dp), verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(12.dp)) {
-        Box(modifier = Modifier.size(34.dp).clip(RoundedCornerShape(12.dp)).background(CardCream), contentAlignment = Alignment.Center) { Text(icon, fontSize = 16.sp) }
+    Row(
+        modifier = Modifier.fillMaxWidth().padding(top = 11.dp),
+        verticalAlignment = Alignment.CenterVertically,
+        horizontalArrangement = Arrangement.spacedBy(12.dp),
+    ) {
+        Box(
+            modifier = Modifier.size(34.dp).clip(RoundedCornerShape(12.dp)).background(CardCream),
+            contentAlignment = Alignment.Center,
+        ) { Text(icon, fontSize = 16.sp) }
         Column(modifier = Modifier.weight(1f)) {
             Text(title, fontSize = 14.sp, lineHeight = 18.sp, fontWeight = FontWeight.ExtraBold, maxLines = 2)
             Text(meta, fontSize = 12.sp, color = Color(0xFF77736A), modifier = Modifier.padding(top = 3.dp))
@@ -208,18 +345,69 @@ private fun CaptureDetectedRow(icon: String, title: String, meta: String) {
 }
 
 @Composable
-private fun ContextChip(text: String, active: Boolean) {
-    Text(
-        text,
-        fontSize = 11.sp,
-        fontWeight = FontWeight.Bold,
-        color = if (active) Color(0xFF7E6D8D) else Color(0xFF67635B),
-        modifier = Modifier
-            .background(if (active) LavenderSoft else CardCream, RoundedCornerShape(14.dp))
-            .border(1.dp, Color(0x14605748), RoundedCornerShape(14.dp))
-            .padding(horizontal = 10.dp, vertical = 9.dp),
-    )
+private fun CaptureKindChip(
+    label: String,
+    kind: CaptureKind,
+    selected: CaptureKind,
+    onSelect: (CaptureKind) -> Unit,
+    modifier: Modifier,
+) {
+    val active = kind == selected
+    Surface(
+        onClick = { onSelect(kind) },
+        modifier = modifier,
+        shape = RoundedCornerShape(14.dp),
+        color = if (active) MossSoft else CardCream,
+        border = androidx.compose.foundation.BorderStroke(
+            1.dp,
+            if (active) Moss.copy(alpha = 0.35f) else Color(0xFFE3DDD2),
+        ),
+    ) {
+        Box(modifier = Modifier.padding(vertical = 10.dp), contentAlignment = Alignment.Center) {
+            Text(
+                label,
+                fontSize = 11.sp,
+                fontWeight = FontWeight.Bold,
+                color = if (active) Moss else Color(0xFF6C675E),
+            )
+        }
+    }
 }
+
+private fun CaptureKind.displayName(): String = when (this) {
+    CaptureKind.TASK -> "Task"
+    CaptureKind.REMINDER -> "Reminder"
+    CaptureKind.DIARY -> "Journal"
+    CaptureKind.IDEA -> "Idea"
+    CaptureKind.ACTIVITY -> "Activity"
+}
+
+private fun detectedTitleMeta(kind: CaptureKind): String = when (kind) {
+    CaptureKind.TASK -> "Action"
+    CaptureKind.REMINDER -> "Reminder action"
+    CaptureKind.DIARY -> "Journal memory"
+    CaptureKind.IDEA -> "Idea"
+    CaptureKind.ACTIVITY -> "Completed activity"
+}
+
+private fun saveLabel(kind: CaptureKind): String = when (kind) {
+    CaptureKind.TASK -> "Save task"
+    CaptureKind.REMINDER -> "Save reminder"
+    CaptureKind.DIARY -> "Save to journal"
+    CaptureKind.IDEA -> "Save idea"
+    CaptureKind.ACTIVITY -> "Log activity"
+}
+
+private fun captureDateTime(time: Long): String = SimpleDateFormat(
+    "EEE, MMM d · h:mm a",
+    Locale.getDefault(),
+).format(Date(time))
+
+private fun durationLabel(minutes: Int): String = if (minutes >= 60) {
+    val hours = minutes / 60
+    val rest = minutes % 60
+    if (rest == 0) "$hours hr" else "$hours hr $rest min"
+} else "$minutes min"
 
 @Composable
 private fun VoiceCaptureControl(onResult: (String) -> Unit) {
@@ -227,7 +415,9 @@ private fun VoiceCaptureControl(onResult: (String) -> Unit) {
     var listening by remember { mutableStateOf(false) }
     var status by remember { mutableStateOf<String?>(null) }
     val recognizerAvailable = remember { SpeechRecognizer.isRecognitionAvailable(context) }
-    val recognizer = remember(recognizerAvailable) { if (recognizerAvailable) SpeechRecognizer.createSpeechRecognizer(context) else null }
+    val recognizer = remember(recognizerAvailable) {
+        if (recognizerAvailable) SpeechRecognizer.createSpeechRecognizer(context) else null
+    }
 
     fun startListening() {
         val intent = Intent(RecognizerIntent.ACTION_RECOGNIZE_SPEECH).apply {
@@ -255,7 +445,10 @@ private fun VoiceCaptureControl(onResult: (String) -> Unit) {
             override fun onResults(results: Bundle?) {
                 listening = false
                 val best = results?.getStringArrayList(SpeechRecognizer.RESULTS_RECOGNITION)?.firstOrNull()
-                if (!best.isNullOrBlank()) { onResult(best); status = "Voice captured" }
+                if (!best.isNullOrBlank()) {
+                    onResult(best)
+                    status = "Voice captured"
+                }
             }
             override fun onPartialResults(partialResults: Bundle?) {
                 val best = partialResults?.getStringArrayList(SpeechRecognizer.RESULTS_RECOGNITION)?.firstOrNull()
@@ -264,26 +457,45 @@ private fun VoiceCaptureControl(onResult: (String) -> Unit) {
             override fun onEvent(eventType: Int, params: Bundle?) = Unit
         }
         recognizer?.setRecognitionListener(listener)
-        onDispose { recognizer?.cancel(); recognizer?.destroy() }
+        onDispose {
+            recognizer?.cancel()
+            recognizer?.destroy()
+        }
     }
 
     Column {
         Row(verticalAlignment = Alignment.CenterVertically) {
             Surface(
                 onClick = {
-                    if (!recognizerAvailable) status = "Speech recognition isn’t available."
-                    else if (ContextCompat.checkSelfPermission(context, Manifest.permission.RECORD_AUDIO) == PackageManager.PERMISSION_GRANTED) {
-                        if (listening) { recognizer?.stopListening(); listening = false } else startListening()
-                    } else permissionLauncher.launch(Manifest.permission.RECORD_AUDIO)
+                    if (!recognizerAvailable) {
+                        status = "Speech recognition isn’t available."
+                    } else if (ContextCompat.checkSelfPermission(context, Manifest.permission.RECORD_AUDIO) == PackageManager.PERMISSION_GRANTED) {
+                        if (listening) {
+                            recognizer?.stopListening()
+                            listening = false
+                        } else startListening()
+                    } else {
+                        permissionLauncher.launch(Manifest.permission.RECORD_AUDIO)
+                    }
                 },
                 modifier = Modifier.size(38.dp),
                 shape = CircleShape,
                 color = Moss,
             ) {
-                Box(contentAlignment = Alignment.Center) { Text(if (listening) "■" else "●", color = Color.White, fontSize = 14.sp) }
+                Box(contentAlignment = Alignment.Center) {
+                    Text(if (listening) "■" else "●", color = Color.White, fontSize = 14.sp)
+                }
             }
-            Text(if (listening) "Stop" else "Hold to speak", fontSize = 13.sp, color = Color(0xFF5F6F5A), fontWeight = FontWeight.Bold, modifier = Modifier.padding(start = 9.dp))
+            Text(
+                if (listening) "Stop" else "Tap to speak",
+                fontSize = 13.sp,
+                color = Color(0xFF5F6F5A),
+                fontWeight = FontWeight.Bold,
+                modifier = Modifier.padding(start = 9.dp),
+            )
         }
-        status?.let { Text(it, fontSize = 10.sp, color = InkMuted, modifier = Modifier.padding(top = 4.dp)) }
+        status?.let {
+            Text(it, fontSize = 10.sp, color = InkMuted, modifier = Modifier.padding(top = 4.dp))
+        }
     }
 }
