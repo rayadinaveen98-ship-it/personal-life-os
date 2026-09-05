@@ -20,6 +20,9 @@ class AppEntryViewModel @Inject constructor(
     val preferredName: StateFlow<String> = preferences.preferredName
         .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), "Navin")
 
+    val themeMode: StateFlow<String> = preferences.themeMode
+        .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), "system")
+
     fun finishOnboarding(
         name: String,
         focusAreas: Set<String>,
