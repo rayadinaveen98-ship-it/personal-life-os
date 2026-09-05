@@ -3,14 +3,16 @@ package com.navin.personallifeos.ui.screens
 import android.Manifest
 import android.content.Intent
 import android.content.pm.PackageManager
+import android.net.Uri
+import android.os.Build
 import android.os.Bundle
+import android.provider.Settings
 import android.speech.RecognitionListener
 import android.speech.RecognizerIntent
 import android.speech.SpeechRecognizer
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.background
-import androidx.compose.foundation.border
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -27,6 +29,7 @@ import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.OutlinedTextField
+import androidx.compose.material3.OutlinedTextFieldDefaults
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
@@ -61,13 +64,58 @@ import java.util.Locale
 @Composable
 fun CaptureScreen(
     onClose: () -> Unit,
+    initialText: String = "",
     viewModel: CaptureViewModel = hiltViewModel(),
 ) {
-    var text by remember { mutableStateOf("") }
+    val context = LocalContext.current
+    var text by remember(initialText) { mutableStateOf(initialText) }
+    var permissionMessage by remember { mutableStateOf<String?>(null) }
     val suggestion by viewModel.suggestion.collectAsState()
     val resolvedProjectTitle by viewModel.resolvedProjectTitle.collectAsState()
     val saved by viewModel.saved.collectAsState()
     val message by viewModel.message.collectAsState()
+
+    val notificationPermissionLauncher = rememberLauncherForActivityResult(
+        ActivityResultContracts.RequestPermission(),
+    ) { granted ->
+        if (granted) {
+            permissionMessage = null
+            viewModel.save()
+        } else {
+            permissionMessage = "Notifications are required for reminders to reach you. Nothing was saved yet."
+        }
+    }
+
+    fun saveWithRequiredPermissions() {
+        val current = suggestion ?: return
+        permissionMessage = null
+        if (
+            current.kind == CaptureKind.REMINDER &&
+            Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU &&
+            ContextCompat.checkSelfPermission(context, Manifest.permission.POST_NOTIFICATIONS) != PackageManager.PERMISSION_GRANTED
+        ) {
+            notificationPermissionLauncher.launch(Manifest.permission.POST_NOTIFICATIONS)
+        } else {
+            viewModel.save()
+        }
+    }
+
+    fun openExactAlarmSettings() {
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) {
+            runCatching {
+                context.startActivity(
+                    Intent(
+                        Settings.ACTION_REQUEST_SCHEDULE_EXACT_ALARM,
+                        Uri.parse("package:${context.packageName}"),
+                    ),
+                )
+            }
+        }
+    }
+
+    LaunchedEffect(initialText) {
+        if (initialText.isNotBlank() && suggestion == null) viewModel.classify(initialText)
+    }
 
     LaunchedEffect(saved, message) {
         if (saved && message == null) onClose()
@@ -101,7 +149,7 @@ fun CaptureScreen(
             modifier = Modifier.padding(top = 7.dp),
         )
         Text(
-            "I’ll pull out the action, date, reminder, project and context — then you can correct anything before saving.",
+            "I’ll pull out the action, date, reminder, project and context. You can correct the type before saving.",
             fontSize = 14.sp,
             lineHeight = 20.sp,
             color = Color(0xFF6F6C64),
@@ -112,7 +160,6 @@ fun CaptureScreen(
             modifier = Modifier.fillMaxWidth(),
             shape = RoundedCornerShape(24.dp),
             color = CardCream,
-            border = androidx.compose.foundation.BorderStroke(1.dp, Color(0x14605748)),
             shadowElevation = 3.dp,
         ) {
             Column(modifier = Modifier.padding(18.dp)) {
@@ -121,8 +168,10 @@ fun CaptureScreen(
                     value = text,
                     onValueChange = {
                         text = it
-                        if (suggestion != null) viewModel.editAgain()
+                        permissionMessage = null
+                        if (suggestion != null && !saved) viewModel.editAgain()
                     },
+                    enabled = !saved,
                     modifier = Modifier.fillMaxWidth().padding(top = 16.dp).heightIn(min = 138.dp),
                     minLines = 5,
                     shape = RoundedCornerShape(18.dp),
@@ -133,11 +182,13 @@ fun CaptureScreen(
                             lineHeight = 24.sp,
                         )
                     },
-                    colors = androidx.compose.material3.OutlinedTextFieldDefaults.colors(
+                    colors = OutlinedTextFieldDefaults.colors(
                         unfocusedContainerColor = Color(0xFFF7F3EA),
                         focusedContainerColor = Color(0xFFF7F3EA),
+                        disabledContainerColor = Color(0xFFF7F3EA),
                         unfocusedBorderColor = Color.Transparent,
                         focusedBorderColor = Moss,
+                        disabledBorderColor = Color.Transparent,
                     ),
                 )
                 Row(
@@ -145,11 +196,15 @@ fun CaptureScreen(
                     horizontalArrangement = Arrangement.SpaceBetween,
                     verticalAlignment = Alignment.CenterVertically,
                 ) {
-                    VoiceCaptureControl(onResult = {
-                        text = it
-                        if (suggestion != null) viewModel.editAgain()
-                    })
-                    Text("On-device rules · private", fontSize = 11.sp, color = Color(0xFF8C887E))
+                    VoiceCaptureControl(
+                        enabled = !saved,
+                        onResult = {
+                            text = it
+                            permissionMessage = null
+                            if (suggestion != null) viewModel.editAgain()
+                        },
+                    )
+                    Text("Local rules · private", fontSize = 11.sp, color = Color(0xFF8C887E))
                 }
             }
         }
@@ -160,7 +215,6 @@ fun CaptureScreen(
                 modifier = Modifier.fillMaxWidth().padding(top = 18.dp),
                 shape = RoundedCornerShape(22.dp),
                 color = Color(0xFFEEF0E9),
-                border = androidx.compose.foundation.BorderStroke(1.dp, Moss.copy(alpha = 0.14f)),
             ) {
                 Column(modifier = Modifier.padding(16.dp)) {
                     Row(
@@ -168,115 +222,70 @@ fun CaptureScreen(
                         horizontalArrangement = Arrangement.SpaceBetween,
                         verticalAlignment = Alignment.CenterVertically,
                     ) {
-                        Text(
-                            "UNDERSTOOD",
-                            fontSize = 12.sp,
-                            letterSpacing = 1.4.sp,
-                            fontWeight = FontWeight.ExtraBold,
-                            color = Color(0xFF65715F),
-                        )
+                        Text("UNDERSTOOD", fontSize = 12.sp, letterSpacing = 1.4.sp, fontWeight = FontWeight.ExtraBold, color = Color(0xFF65715F))
                         Text(
                             current.kind.displayName(),
                             fontSize = 12.sp,
                             fontWeight = FontWeight.Bold,
                             color = Color(0xFF53644F),
-                            modifier = Modifier
-                                .background(Color(0xFFDCE4D7), RoundedCornerShape(999.dp))
-                                .padding(horizontal = 10.dp, vertical = 7.dp),
+                            modifier = Modifier.background(Color(0xFFDCE4D7), RoundedCornerShape(999.dp)).padding(horizontal = 10.dp, vertical = 7.dp),
                         )
                     }
-
                     CaptureDetectedRow("✓", current.title, detectedTitleMeta(current.kind))
-
-                    current.reminderAt?.let {
-                        CaptureDetectedRow(
-                            "◷",
-                            captureDateTime(it),
-                            "Exact reminder",
-                        )
-                    } ?: current.dueAt?.let {
-                        CaptureDetectedRow(
-                            "◷",
-                            captureDateTime(it),
-                            "Due date · no alarm",
-                        )
-                    }
-
+                    current.reminderAt?.let { CaptureDetectedRow("◷", captureDateTime(it), "Exact reminder") }
+                        ?: current.dueAt?.let { CaptureDetectedRow("◷", captureDateTime(it), "Due date · no alarm") }
                     val projectLabel = resolvedProjectTitle ?: current.projectHint
                     if (projectLabel != null) {
-                        CaptureDetectedRow(
-                            "▦",
-                            projectLabel,
-                            if (resolvedProjectTitle != null) "Linked project" else "Project hint · no exact match yet",
-                        )
+                        CaptureDetectedRow("▦", projectLabel, if (resolvedProjectTitle != null) "Linked project" else "Project hint · create the project first to link it")
                     }
-
                     if (current.priority != 0) {
-                        CaptureDetectedRow(
-                            "!",
-                            if (current.priority > 0) "High priority" else "Low priority",
-                            "Detected from your wording",
-                        )
+                        CaptureDetectedRow("!", if (current.priority > 0) "High priority" else "Low priority", "Detected from your wording")
                     }
-
-                    current.durationMinutes?.let {
-                        CaptureDetectedRow("↗", durationLabel(it), "Activity duration")
-                    }
+                    current.durationMinutes?.let { CaptureDetectedRow("↗", durationLabel(it), "Activity duration") }
                 }
             }
 
-            Text(
-                "Is the type right?",
-                fontSize = 13.sp,
-                fontWeight = FontWeight.ExtraBold,
-                modifier = Modifier.padding(top = 18.dp, bottom = 10.dp),
-            )
-            Row(horizontalArrangement = Arrangement.spacedBy(7.dp)) {
-                CaptureKindChip("Task", CaptureKind.TASK, current.kind, viewModel::selectKind, Modifier.weight(1f))
-                CaptureKindChip("Reminder", CaptureKind.REMINDER, current.kind, viewModel::selectKind, Modifier.weight(1f))
-                CaptureKindChip("Idea", CaptureKind.IDEA, current.kind, viewModel::selectKind, Modifier.weight(1f))
-            }
-            Row(horizontalArrangement = Arrangement.spacedBy(7.dp), modifier = Modifier.padding(top = 7.dp)) {
-                CaptureKindChip("Journal", CaptureKind.DIARY, current.kind, viewModel::selectKind, Modifier.weight(1f))
-                CaptureKindChip("Activity", CaptureKind.ACTIVITY, current.kind, viewModel::selectKind, Modifier.weight(1f))
-            }
+            if (!saved) {
+                Text("Is the type right?", fontSize = 13.sp, fontWeight = FontWeight.ExtraBold, modifier = Modifier.padding(top = 18.dp, bottom = 10.dp))
+                Row(horizontalArrangement = Arrangement.spacedBy(7.dp)) {
+                    CaptureKindChip("Task", CaptureKind.TASK, current.kind, viewModel::selectKind, Modifier.weight(1f))
+                    CaptureKindChip("Reminder", CaptureKind.REMINDER, current.kind, viewModel::selectKind, Modifier.weight(1f))
+                    CaptureKindChip("Idea", CaptureKind.IDEA, current.kind, viewModel::selectKind, Modifier.weight(1f))
+                }
+                Row(horizontalArrangement = Arrangement.spacedBy(7.dp), modifier = Modifier.padding(top = 7.dp)) {
+                    CaptureKindChip("Journal", CaptureKind.DIARY, current.kind, viewModel::selectKind, Modifier.weight(1f))
+                    CaptureKindChip("Activity", CaptureKind.ACTIVITY, current.kind, viewModel::selectKind, Modifier.weight(1f))
+                }
 
-            Button(
-                onClick = viewModel::save,
-                modifier = Modifier.fillMaxWidth().padding(top = 20.dp),
-                shape = RoundedCornerShape(18.dp),
-                colors = ButtonDefaults.buttonColors(containerColor = Moss),
-            ) {
-                Text(
-                    saveLabel(current.kind),
-                    fontSize = 15.sp,
-                    fontWeight = FontWeight.ExtraBold,
-                    modifier = Modifier.padding(vertical = 7.dp),
-                )
-            }
-
-            message?.let {
-                Surface(
-                    modifier = Modifier.fillMaxWidth().padding(top = 10.dp),
-                    shape = RoundedCornerShape(15.dp),
-                    color = LavenderSoft,
+                Button(
+                    onClick = ::saveWithRequiredPermissions,
+                    modifier = Modifier.fillMaxWidth().padding(top = 20.dp),
+                    shape = RoundedCornerShape(18.dp),
+                    colors = ButtonDefaults.buttonColors(containerColor = Moss),
                 ) {
-                    Text(it, fontSize = 11.5.sp, lineHeight = 16.sp, color = InkMuted, modifier = Modifier.padding(12.dp))
+                    Text(saveLabel(current.kind), fontSize = 15.sp, fontWeight = FontWeight.ExtraBold, modifier = Modifier.padding(vertical = 7.dp))
                 }
             }
 
-            Surface(
-                onClick = viewModel::editAgain,
-                color = Color.Transparent,
-                modifier = Modifier.padding(top = 5.dp),
-            ) {
-                Text(
-                    "Edit & understand again",
-                    fontSize = 12.sp,
-                    color = Moss,
-                    fontWeight = FontWeight.Bold,
-                    modifier = Modifier.padding(vertical = 8.dp),
-                )
+            permissionMessage?.let { CaptureMessage(it) }
+            message?.let { CaptureMessage(it) }
+
+            if (saved && current.kind == CaptureKind.REMINDER && message != null) {
+                Button(
+                    onClick = ::openExactAlarmSettings,
+                    modifier = Modifier.fillMaxWidth().padding(top = 10.dp),
+                    shape = RoundedCornerShape(16.dp),
+                    colors = ButtonDefaults.buttonColors(containerColor = Moss),
+                ) { Text("Allow exact alarms", fontWeight = FontWeight.Bold, modifier = Modifier.padding(vertical = 5.dp)) }
+                Surface(onClick = viewModel::retryExactAlarm, color = Color.Transparent, modifier = Modifier.fillMaxWidth().padding(top = 4.dp)) {
+                    Text("I allowed it · Finish reminder setup", color = Moss, fontSize = 12.sp, fontWeight = FontWeight.ExtraBold, modifier = Modifier.padding(10.dp))
+                }
+            }
+
+            if (!saved) {
+                Surface(onClick = viewModel::editAgain, color = Color.Transparent, modifier = Modifier.padding(top = 5.dp)) {
+                    Text("Edit & understand again", fontSize = 12.sp, color = Moss, fontWeight = FontWeight.Bold, modifier = Modifier.padding(vertical = 8.dp))
+                }
             }
         } else {
             Button(
@@ -290,53 +299,41 @@ fun CaptureScreen(
             }
         }
 
-        Surface(
-            modifier = Modifier.fillMaxWidth().padding(top = 20.dp),
-            shape = RoundedCornerShape(20.dp),
-            color = Color(0xFFF1ECE3),
-        ) {
+        Surface(modifier = Modifier.fillMaxWidth().padding(top = 20.dp), shape = RoundedCornerShape(20.dp), color = Color(0xFFF1ECE3)) {
             Column(modifier = Modifier.padding(16.dp)) {
-                Text(
-                    "TRY SAYING",
-                    fontSize = 11.sp,
-                    letterSpacing = 1.2.sp,
-                    color = Color(0xFF8B857B),
-                    fontWeight = FontWeight.ExtraBold,
-                )
-                Text("“Tomorrow at 9 AM work on CINEMA.”", fontSize = 13.sp, lineHeight = 19.sp, color = Color(0xFF625E57), modifier = Modifier.padding(top = 8.dp))
-                Text("“Finish the parser by Monday.”", fontSize = 13.sp, lineHeight = 19.sp, color = Color(0xFF625E57), modifier = Modifier.padding(top = 6.dp))
-                Text("“Worked on Blender for 45 minutes.”", fontSize = 13.sp, lineHeight = 19.sp, color = Color(0xFF625E57), modifier = Modifier.padding(top = 6.dp))
-                Text("“Idea: make weekly reviews more visual.”", fontSize = 13.sp, lineHeight = 19.sp, color = Color(0xFF625E57), modifier = Modifier.padding(top = 6.dp))
-                Text("“Today felt productive. Save this to my journal.”", fontSize = 13.sp, lineHeight = 19.sp, color = Color(0xFF625E57), modifier = Modifier.padding(top = 6.dp))
+                Text("TRY SAYING", fontSize = 11.sp, letterSpacing = 1.2.sp, color = Color(0xFF8B857B), fontWeight = FontWeight.ExtraBold)
+                listOf(
+                    "“Tomorrow at 9 AM work on CINEMA.”",
+                    "“Finish the parser by Monday.”",
+                    "“Worked on Blender for 45 minutes.”",
+                    "“Idea: make weekly reviews more visual.”",
+                    "“Today felt productive. Save this to my journal.”",
+                ).forEachIndexed { index, example ->
+                    Text(example, fontSize = 13.sp, lineHeight = 19.sp, color = Color(0xFF625E57), modifier = Modifier.padding(top = if (index == 0) 8.dp else 6.dp))
+                }
             }
         }
     }
 }
 
 @Composable
+private fun CaptureMessage(text: String) {
+    Surface(modifier = Modifier.fillMaxWidth().padding(top = 10.dp), shape = RoundedCornerShape(15.dp), color = LavenderSoft) {
+        Text(text, fontSize = 11.5.sp, lineHeight = 16.sp, color = InkMuted, modifier = Modifier.padding(12.dp))
+    }
+}
+
+@Composable
 private fun CaptureTopButton(label: String, onClick: () -> Unit) {
-    Surface(
-        onClick = onClick,
-        modifier = Modifier.size(38.dp),
-        shape = RoundedCornerShape(13.dp),
-        color = CardCream,
-        shadowElevation = 2.dp,
-    ) {
+    Surface(onClick = onClick, modifier = Modifier.size(38.dp), shape = RoundedCornerShape(13.dp), color = CardCream, shadowElevation = 2.dp) {
         Box(contentAlignment = Alignment.Center) { Text(label, fontSize = 20.sp) }
     }
 }
 
 @Composable
 private fun CaptureDetectedRow(icon: String, title: String, meta: String) {
-    Row(
-        modifier = Modifier.fillMaxWidth().padding(top = 11.dp),
-        verticalAlignment = Alignment.CenterVertically,
-        horizontalArrangement = Arrangement.spacedBy(12.dp),
-    ) {
-        Box(
-            modifier = Modifier.size(34.dp).clip(RoundedCornerShape(12.dp)).background(CardCream),
-            contentAlignment = Alignment.Center,
-        ) { Text(icon, fontSize = 16.sp) }
+    Row(modifier = Modifier.fillMaxWidth().padding(top = 11.dp), verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(12.dp)) {
+        Box(modifier = Modifier.size(34.dp).clip(RoundedCornerShape(12.dp)).background(CardCream), contentAlignment = Alignment.Center) { Text(icon, fontSize = 16.sp) }
         Column(modifier = Modifier.weight(1f)) {
             Text(title, fontSize = 14.sp, lineHeight = 18.sp, fontWeight = FontWeight.ExtraBold, maxLines = 2)
             Text(meta, fontSize = 12.sp, color = Color(0xFF77736A), modifier = Modifier.padding(top = 3.dp))
@@ -345,31 +342,16 @@ private fun CaptureDetectedRow(icon: String, title: String, meta: String) {
 }
 
 @Composable
-private fun CaptureKindChip(
-    label: String,
-    kind: CaptureKind,
-    selected: CaptureKind,
-    onSelect: (CaptureKind) -> Unit,
-    modifier: Modifier,
-) {
+private fun CaptureKindChip(label: String, kind: CaptureKind, selected: CaptureKind, onSelect: (CaptureKind) -> Unit, modifier: Modifier) {
     val active = kind == selected
     Surface(
         onClick = { onSelect(kind) },
         modifier = modifier,
         shape = RoundedCornerShape(14.dp),
         color = if (active) MossSoft else CardCream,
-        border = androidx.compose.foundation.BorderStroke(
-            1.dp,
-            if (active) Moss.copy(alpha = 0.35f) else Color(0xFFE3DDD2),
-        ),
     ) {
         Box(modifier = Modifier.padding(vertical = 10.dp), contentAlignment = Alignment.Center) {
-            Text(
-                label,
-                fontSize = 11.sp,
-                fontWeight = FontWeight.Bold,
-                color = if (active) Moss else Color(0xFF6C675E),
-            )
+            Text(label, fontSize = 11.sp, fontWeight = FontWeight.Bold, color = if (active) Moss else Color(0xFF6C675E))
         }
     }
 }
@@ -398,10 +380,7 @@ private fun saveLabel(kind: CaptureKind): String = when (kind) {
     CaptureKind.ACTIVITY -> "Log activity"
 }
 
-private fun captureDateTime(time: Long): String = SimpleDateFormat(
-    "EEE, MMM d · h:mm a",
-    Locale.getDefault(),
-).format(Date(time))
+private fun captureDateTime(time: Long): String = SimpleDateFormat("EEE, MMM d · h:mm a", Locale.getDefault()).format(Date(time))
 
 private fun durationLabel(minutes: Int): String = if (minutes >= 60) {
     val hours = minutes / 60
@@ -410,7 +389,7 @@ private fun durationLabel(minutes: Int): String = if (minutes >= 60) {
 } else "$minutes min"
 
 @Composable
-private fun VoiceCaptureControl(onResult: (String) -> Unit) {
+private fun VoiceCaptureControl(enabled: Boolean, onResult: (String) -> Unit) {
     val context = LocalContext.current
     var listening by remember { mutableStateOf(false) }
     var status by remember { mutableStateOf<String?>(null) }
@@ -467,6 +446,7 @@ private fun VoiceCaptureControl(onResult: (String) -> Unit) {
         Row(verticalAlignment = Alignment.CenterVertically) {
             Surface(
                 onClick = {
+                    if (!enabled) return@Surface
                     if (!recognizerAvailable) {
                         status = "Speech recognition isn’t available."
                     } else if (ContextCompat.checkSelfPermission(context, Manifest.permission.RECORD_AUDIO) == PackageManager.PERMISSION_GRANTED) {
@@ -480,22 +460,12 @@ private fun VoiceCaptureControl(onResult: (String) -> Unit) {
                 },
                 modifier = Modifier.size(38.dp),
                 shape = CircleShape,
-                color = Moss,
+                color = if (enabled) Moss else Color(0xFFAAA59A),
             ) {
-                Box(contentAlignment = Alignment.Center) {
-                    Text(if (listening) "■" else "●", color = Color.White, fontSize = 14.sp)
-                }
+                Box(contentAlignment = Alignment.Center) { Text(if (listening) "■" else "●", color = Color.White, fontSize = 14.sp) }
             }
-            Text(
-                if (listening) "Stop" else "Tap to speak",
-                fontSize = 13.sp,
-                color = Color(0xFF5F6F5A),
-                fontWeight = FontWeight.Bold,
-                modifier = Modifier.padding(start = 9.dp),
-            )
+            Text(if (listening) "Stop" else "Tap to speak", fontSize = 13.sp, color = Color(0xFF5F6F5A), fontWeight = FontWeight.Bold, modifier = Modifier.padding(start = 9.dp))
         }
-        status?.let {
-            Text(it, fontSize = 10.sp, color = InkMuted, modifier = Modifier.padding(top = 4.dp))
-        }
+        status?.let { Text(it, fontSize = 10.sp, color = InkMuted, modifier = Modifier.padding(top = 4.dp)) }
     }
 }
