@@ -17,9 +17,13 @@ class LifeRepository @Inject constructor(
 ) {
     fun tasks(): Flow<List<TaskEntity>> = dao.observeTasks()
     fun pendingTasks(): Flow<List<TaskEntity>> = dao.observePendingTasks()
+    fun task(id: String): Flow<TaskEntity?> = dao.observeTask(id)
     fun activeProjects(): Flow<List<ProjectEntity>> = dao.observeActiveProjects()
+    fun project(id: String): Flow<ProjectEntity?> = dao.observeProject(id)
     fun journal(): Flow<List<JournalEntryEntity>> = dao.observeJournal()
+    fun journalEntry(id: String): Flow<JournalEntryEntity?> = dao.observeJournalEntry(id)
     fun ideas(): Flow<List<IdeaEntity>> = dao.observeIdeas()
+    fun idea(id: String): Flow<IdeaEntity?> = dao.observeIdea(id)
     fun recentActivity(limit: Int = 100): Flow<List<ActivityEventEntity>> = dao.observeRecentActivity(limit)
 
     suspend fun pendingReminders(now: Long = System.currentTimeMillis()): List<TaskEntity> = dao.pendingReminders(now)
@@ -37,6 +41,10 @@ class LifeRepository @Inject constructor(
         )
     }
 
+    suspend fun updateTask(task: TaskEntity) {
+        dao.upsertTask(task.copy(updatedAt = System.currentTimeMillis()))
+    }
+
     suspend fun completeTask(task: TaskEntity) {
         val now = System.currentTimeMillis()
         dao.upsertTask(task.copy(completedAt = now, updatedAt = now))
@@ -51,7 +59,27 @@ class LifeRepository @Inject constructor(
         )
     }
 
+    suspend fun reopenTask(task: TaskEntity) {
+        val now = System.currentTimeMillis()
+        dao.upsertTask(task.copy(completedAt = null, updatedAt = now))
+        dao.insertActivity(
+            ActivityEventEntity(
+                id = UUID.randomUUID().toString(),
+                type = "task_reopened",
+                title = task.title,
+                entityId = task.id,
+                occurredAt = now,
+            ),
+        )
+    }
+
+    suspend fun deleteTask(id: String) = dao.deleteTask(id)
+
     suspend fun saveProject(project: ProjectEntity) = dao.upsertProject(project)
+
+    suspend fun archiveProject(project: ProjectEntity) {
+        dao.upsertProject(project.copy(status = "archived", updatedAt = System.currentTimeMillis()))
+    }
 
     suspend fun saveJournal(entry: JournalEntryEntity) {
         dao.upsertJournal(entry)
@@ -66,6 +94,11 @@ class LifeRepository @Inject constructor(
         )
     }
 
+    suspend fun updateJournal(entry: JournalEntryEntity) =
+        dao.upsertJournal(entry.copy(updatedAt = System.currentTimeMillis()))
+
+    suspend fun deleteJournal(id: String) = dao.deleteJournalEntry(id)
+
     suspend fun saveIdea(idea: IdeaEntity) {
         dao.upsertIdea(idea)
         dao.insertActivity(
@@ -78,6 +111,11 @@ class LifeRepository @Inject constructor(
             ),
         )
     }
+
+    suspend fun updateIdea(idea: IdeaEntity) =
+        dao.upsertIdea(idea.copy(updatedAt = System.currentTimeMillis()))
+
+    suspend fun deleteIdea(id: String) = dao.deleteIdea(id)
 
     suspend fun saveActivity(
         title: String,
