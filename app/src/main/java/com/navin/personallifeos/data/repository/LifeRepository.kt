@@ -78,4 +78,23 @@ class LifeRepository @Inject constructor(
             ),
         )
     }
+
+    suspend fun saveActivity(
+        title: String,
+        projectId: String?,
+        durationMinutes: Int?,
+        occurredAt: Long = System.currentTimeMillis(),
+    ) {
+        val metadata = durationMinutes?.let { "{\"durationMinutes\":$it}" } ?: "{}"
+        dao.insertActivity(
+            ActivityEventEntity(
+                id = UUID.randomUUID().toString(),
+                type = "activity_log",
+                title = title,
+                entityId = projectId,
+                occurredAt = occurredAt,
+                metadataJson = metadata,
+            ),
+        )
+    }
 }
