@@ -60,7 +60,7 @@ import com.navin.personallifeos.ui.theme.Moss
 import com.navin.personallifeos.ui.theme.MossSoft
 import kotlinx.coroutines.delay
 
-private const val TotalSetupSteps = 4
+private const val SetupSteps = 4
 
 @Composable
 fun OnboardingFlow(
@@ -76,80 +76,69 @@ fun OnboardingFlow(
     var name by remember { mutableStateOf("Navin") }
     var focusAreas by remember { mutableStateOf(setOf("Build projects", "Learn & grow")) }
     var lifeAreas by remember { mutableStateOf(setOf("App Building", "Game Development")) }
-    var customLifeArea by remember { mutableStateOf("") }
+    var customArea by remember { mutableStateOf("") }
     var morningBrief by remember { mutableStateOf(true) }
     var eveningReflection by remember { mutableStateOf(true) }
 
     when (step) {
-        0 -> WelcomeStep(onContinue = { step = 1 })
-        1 -> FocusStep(
+        0 -> WelcomeSetup { step = 1 }
+        1 -> FocusSetup(
             selected = focusAreas,
             onToggle = { focusAreas = focusAreas.toggle(it) },
             onBack = { step = 0 },
             onContinue = { step = 2 },
         )
-        2 -> LifeAreasStep(
+        2 -> LifeSetup(
             selected = lifeAreas,
-            customArea = customLifeArea,
-            onCustomAreaChange = { customLifeArea = it },
+            customArea = customArea,
+            onCustomAreaChange = { customArea = it },
             onToggle = { lifeAreas = lifeAreas.toggle(it) },
             onAddCustom = {
-                val clean = customLifeArea.trim()
-                if (clean.isNotEmpty()) {
-                    lifeAreas = lifeAreas + clean
-                    customLifeArea = ""
+                customArea.trim().takeIf { it.isNotEmpty() }?.let { value ->
+                    lifeAreas = lifeAreas + value
+                    customArea = ""
                 }
             },
             onBack = { step = 1 },
             onContinue = { step = 3 },
         )
-        3 -> PersonalizeStep(
+        3 -> PersonalizeSetup(
             name = name,
             onNameChange = { name = it },
             morningBrief = morningBrief,
-            onMorningBriefChange = { morningBrief = it },
             eveningReflection = eveningReflection,
+            onMorningBriefChange = { morningBrief = it },
             onEveningReflectionChange = { eveningReflection = it },
             onBack = { step = 2 },
             onContinue = { step = 4 },
         )
-        else -> ReadyStep(
-            name = name,
-            onReady = {
-                onFinish(name, focusAreas, lifeAreas, morningBrief, eveningReflection)
-            },
-        )
+        else -> ReadySetup(name) {
+            onFinish(name, focusAreas, lifeAreas, morningBrief, eveningReflection)
+        }
     }
 }
 
-private fun Set<String>.toggle(value: String): Set<String> =
-    if (contains(value)) this - value else this + value
+private fun Set<String>.toggle(value: String): Set<String> = if (contains(value)) this - value else this + value
 
 @Composable
-private fun WelcomeStep(onContinue: () -> Unit) {
-    SetupScaffold(
-        progress = null,
-        onBack = null,
-        trailing = null,
-        bottomContent = {
-            PrimarySetupButton("Get started", onContinue)
-            Text(
-                "Private by default · Built around your life",
-                fontSize = 11.sp,
-                color = InkMuted,
-                textAlign = TextAlign.Center,
-                modifier = Modifier.fillMaxWidth().padding(top = 12.dp),
-            )
-        },
-    ) {
-        Spacer(Modifier.height(24.dp))
+private fun WelcomeSetup(onContinue: () -> Unit) {
+    SetupFrame(progress = null, onBack = null, trailing = null, bottom = {
+        PrimaryButton("Get started", onContinue)
+        Text(
+            "Private by default · Built around your life",
+            fontSize = 11.sp,
+            color = InkMuted,
+            textAlign = TextAlign.Center,
+            modifier = Modifier.fillMaxWidth().padding(top = 12.dp),
+        )
+    }) {
+        Spacer(Modifier.height(30.dp))
         Text(
             "A place for the life\nyou’re building.",
             fontSize = 39.sp,
             lineHeight = 42.sp,
             fontWeight = FontWeight.ExtraBold,
-            letterSpacing = (-0.9).sp,
-            color = Color(0xFF252521),
+            letterSpacing = (-0.8).sp,
         )
         Text(
             "Plans, ideas, projects, memories and growth — connected without turning your life into a productivity dashboard.",
@@ -161,65 +150,48 @@ private fun WelcomeStep(onContinue: () -> Unit) {
 
         Surface(
             modifier = Modifier.fillMaxWidth().padding(top = 34.dp),
-            color = CardCream,
             shape = RoundedCornerShape(28.dp),
+            color = CardCream,
             shadowElevation = 3.dp,
         ) {
-            Column(modifier = Modifier.padding(20.dp), verticalArrangement = Arrangement.spacedBy(15.dp)) {
-                SetupPreviewRow("01", "Today", "See what deserves your attention now.", MossSoft)
-                SetupPreviewRow("02", "Capture", "Write or speak naturally. Sort it after.", LavenderSoft)
-                SetupPreviewRow("03", "Journey", "Keep the story behind what you’re building.", Color(0xFFF4E8D0))
+            Column(modifier = Modifier.padding(20.dp), verticalArrangement = Arrangement.spacedBy(16.dp)) {
+                PreviewRow("01", "Today", "See what deserves your attention now.", MossSoft)
+                PreviewRow("02", "Capture", "Write or speak naturally. Sort it after.", LavenderSoft)
+                PreviewRow("03", "Journey", "Keep the story behind what you’re building.", Color(0xFFF4E8D0))
             }
         }
     }
 }
 
 @Composable
-private fun FocusStep(
+private fun FocusSetup(
     selected: Set<String>,
     onToggle: (String) -> Unit,
     onBack: () -> Unit,
     onContinue: () -> Unit,
 ) {
-    SetupScaffold(
-        progress = 1,
-        onBack = onBack,
-        trailing = "Skip",
-        onTrailing = onContinue,
-        bottomContent = {
-            PrimarySetupButton(
-                if (selected.isEmpty()) "Continue" else "Continue · ${selected.size} selected",
-                onContinue,
-            )
-        },
-    ) {
-        SetupQuestion(
-            eyebrow = "BUILD YOUR SPACE",
-            title = "What do you want more of in your life?",
-            body = "Choose what you’d like this space to help you with. You can change everything later.",
+    SetupFrame(progress = 1, onBack = onBack, trailing = "Skip", onTrailing = onContinue, bottom = {
+        PrimaryButton(if (selected.isEmpty()) "Continue" else "Continue · ${selected.size} selected", onContinue)
+    }) {
+        Question(
+            "BUILD YOUR SPACE",
+            "What do you want more of in your life?",
+            "Choose what you’d like this space to help you with. You can change everything later.",
         )
 
         val options = listOf(
-            Triple("Build projects", "Turn ideas into things you actually finish.", Icons.Outlined.RocketLaunch),
-            Triple("Remember my life", "Keep meaningful days, thoughts and memories.", Icons.Outlined.AutoStories),
-            Triple("Learn & grow", "Make skills and hobbies visible over time.", Icons.Outlined.School),
-            Triple("Stay organized", "Tasks and reminders without the clutter.", Icons.Outlined.TaskAlt),
-            Triple("Build habits", "Create routines without guilt-heavy streaks.", Icons.Outlined.CheckCircle),
-            Triple("Explore ideas", "Keep sparks, notes and possibilities connected.", Icons.Outlined.Lightbulb),
+            SetupOption("Build projects", "Turn ideas into things you actually finish.", Icons.Outlined.RocketLaunch),
+            SetupOption("Remember my life", "Keep meaningful days and memories.", Icons.Outlined.AutoStories),
+            SetupOption("Learn & grow", "Make skills and hobbies visible over time.", Icons.Outlined.School),
+            SetupOption("Stay organized", "Tasks and reminders without the clutter.", Icons.Outlined.TaskAlt),
+            SetupOption("Build habits", "Create routines without guilt-heavy streaks.", Icons.Outlined.CheckCircle),
+            SetupOption("Explore ideas", "Keep sparks and possibilities connected.", Icons.Outlined.Lightbulb),
         )
-
         Column(modifier = Modifier.padding(top = 22.dp), verticalArrangement = Arrangement.spacedBy(10.dp)) {
-            options.chunked(2).forEach { row ->
+            options.chunked(2).forEach { pair ->
                 Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(10.dp)) {
-                    row.forEach { (title, body, icon) ->
-                        SelectableSetupCard(
-                            title = title,
-                            body = body,
-                            icon = icon,
-                            selected = selected.contains(title),
-                            onClick = { onToggle(title) },
-                            modifier = Modifier.weight(1f),
-                        )
+                    pair.forEach { option ->
+                        FocusCard(option, selected.contains(option.title), { onToggle(option.title) }, Modifier.weight(1f))
                     }
                 }
             }
@@ -228,7 +200,7 @@ private fun FocusStep(
 }
 
 @Composable
-private fun LifeAreasStep(
+private fun LifeSetup(
     selected: Set<String>,
     customArea: String,
     onCustomAreaChange: (String) -> Unit,
@@ -237,45 +209,28 @@ private fun LifeAreasStep(
     onBack: () -> Unit,
     onContinue: () -> Unit,
 ) {
-    SetupScaffold(
-        progress = 2,
-        onBack = onBack,
-        trailing = "Skip",
-        onTrailing = onContinue,
-        bottomContent = {
-            PrimarySetupButton(
-                if (selected.isEmpty()) "Continue" else "Continue · ${selected.size} added",
-                onContinue,
-            )
-        },
-    ) {
-        SetupQuestion(
-            eyebrow = "YOUR LIFE, RIGHT NOW",
-            title = "What’s already part of your world?",
-            body = "Pick a few areas you care about. These become the first threads your app learns to connect.",
+    SetupFrame(progress = 2, onBack = onBack, trailing = "Skip", onTrailing = onContinue, bottom = {
+        PrimaryButton(if (selected.isEmpty()) "Continue" else "Continue · ${selected.size} added", onContinue)
+    }) {
+        Question(
+            "YOUR LIFE, RIGHT NOW",
+            "What’s already part of your world?",
+            "Pick a few areas you care about. These become the first threads your app learns to connect.",
         )
 
         val areas = listOf(
-            Triple("App Building", Icons.Outlined.Psychology, MossSoft),
-            Triple("Game Development", Icons.Outlined.VideogameAsset, Color(0xFFF4E8D0)),
-            Triple("Filmmaking", Icons.Outlined.Edit, LavenderSoft),
-            Triple("Health", Icons.Outlined.FavoriteBorder, Color(0xFFF2E5DC)),
-            Triple("Reading", Icons.Outlined.AutoStories, Color(0xFFE9EEE7)),
-            Triple("Learning", Icons.Outlined.School, Color(0xFFEDE8F1)),
+            LifeOption("App Building", Icons.Outlined.Psychology, MossSoft),
+            LifeOption("Game Development", Icons.Outlined.VideogameAsset, Color(0xFFF4E8D0)),
+            LifeOption("Filmmaking", Icons.Outlined.Edit, LavenderSoft),
+            LifeOption("Health", Icons.Outlined.FavoriteBorder, Color(0xFFF2E5DC)),
+            LifeOption("Reading", Icons.Outlined.AutoStories, Color(0xFFE9EEE7)),
+            LifeOption("Learning", Icons.Outlined.School, Color(0xFFEDE8F1)),
         )
-
         Column(modifier = Modifier.padding(top = 22.dp), verticalArrangement = Arrangement.spacedBy(10.dp)) {
-            areas.chunked(2).forEach { row ->
+            areas.chunked(2).forEach { pair ->
                 Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(10.dp)) {
-                    row.forEach { (title, icon, tint) ->
-                        LifeAreaCard(
-                            title = title,
-                            icon = icon,
-                            tint = tint,
-                            selected = selected.contains(title),
-                            onClick = { onToggle(title) },
-                            modifier = Modifier.weight(1f),
-                        )
+                    pair.forEach { area ->
+                        LifeCard(area, selected.contains(area.title), { onToggle(area.title) }, Modifier.weight(1f))
                     }
                 }
             }
@@ -300,41 +255,29 @@ private fun LifeAreasStep(
                     unfocusedBorderColor = Color(0xFFD8D1C6),
                 ),
             )
-            Surface(
-                onClick = onAddCustom,
-                shape = RoundedCornerShape(18.dp),
-                color = MossSoft,
-                modifier = Modifier.size(56.dp),
-            ) {
-                Box(contentAlignment = Alignment.Center) {
-                    Text("+", fontSize = 26.sp, color = Moss, fontWeight = FontWeight.Medium)
-                }
+            Surface(onClick = onAddCustom, modifier = Modifier.size(56.dp), shape = RoundedCornerShape(18.dp), color = MossSoft) {
+                Box(contentAlignment = Alignment.Center) { Text("+", fontSize = 26.sp, color = Moss) }
             }
         }
     }
 }
 
 @Composable
-private fun PersonalizeStep(
+private fun PersonalizeSetup(
     name: String,
     onNameChange: (String) -> Unit,
     morningBrief: Boolean,
-    onMorningBriefChange: (Boolean) -> Unit,
     eveningReflection: Boolean,
+    onMorningBriefChange: (Boolean) -> Unit,
     onEveningReflectionChange: (Boolean) -> Unit,
     onBack: () -> Unit,
     onContinue: () -> Unit,
 ) {
-    SetupScaffold(
-        progress = 3,
-        onBack = onBack,
-        trailing = null,
-        bottomContent = { PrimarySetupButton("Make it mine", onContinue) },
-    ) {
-        SetupQuestion(
-            eyebrow = "MAKE IT YOURS",
-            title = "How should this space meet you each day?",
-            body = "A little personalization makes the first week feel less like a new app and more like your own place.",
+    SetupFrame(progress = 3, onBack = onBack, trailing = null, bottom = { PrimaryButton("Make it mine", onContinue) }) {
+        Question(
+            "MAKE IT YOURS",
+            "How should this space meet you each day?",
+            "A little personalization makes the first week feel less like a new app and more like your own place.",
         )
 
         Text("What should I call you?", fontSize = 14.sp, fontWeight = FontWeight.Bold, modifier = Modifier.padding(top = 28.dp))
@@ -353,25 +296,16 @@ private fun PersonalizeStep(
         )
 
         Text("Your rhythm", fontSize = 14.sp, fontWeight = FontWeight.Bold, modifier = Modifier.padding(top = 24.dp, bottom = 9.dp))
-        RhythmCard(
-            title = "Morning brief",
-            body = "A calm view of what matters today.",
-            checked = morningBrief,
-            onCheckedChange = onMorningBriefChange,
-        )
-        RhythmCard(
-            title = "Evening reflection",
-            body = "A quiet prompt to remember the day.",
-            checked = eveningReflection,
-            onCheckedChange = onEveningReflectionChange,
-            modifier = Modifier.padding(top = 10.dp),
+        RhythmRow("Morning brief", "A calm view of what matters today.", morningBrief, onMorningBriefChange)
+        RhythmRow(
+            "Evening reflection",
+            "A quiet prompt to remember the day.",
+            eveningReflection,
+            onEveningReflectionChange,
+            Modifier.padding(top = 10.dp),
         )
 
-        Surface(
-            modifier = Modifier.fillMaxWidth().padding(top = 18.dp),
-            shape = RoundedCornerShape(20.dp),
-            color = LavenderSoft,
-        ) {
+        Surface(modifier = Modifier.fillMaxWidth().padding(top = 18.dp), shape = RoundedCornerShape(20.dp), color = LavenderSoft) {
             Text(
                 "We’ll ask for notifications or microphone access only when you first use a feature that needs it.",
                 fontSize = 12.sp,
@@ -384,12 +318,11 @@ private fun PersonalizeStep(
 }
 
 @Composable
-private fun ReadyStep(name: String, onReady: () -> Unit) {
+private fun ReadySetup(name: String, onReady: () -> Unit) {
     LaunchedEffect(Unit) {
         delay(1700)
         onReady()
     }
-
     Column(
         modifier = Modifier
             .fillMaxSize()
@@ -400,12 +333,7 @@ private fun ReadyStep(name: String, onReady: () -> Unit) {
         horizontalAlignment = Alignment.CenterHorizontally,
         verticalArrangement = Arrangement.Center,
     ) {
-        Surface(
-            modifier = Modifier.size(92.dp),
-            shape = CircleShape,
-            color = Moss,
-            shadowElevation = 6.dp,
-        ) {
+        Surface(modifier = Modifier.size(92.dp), shape = CircleShape, color = Moss, shadowElevation = 6.dp) {
             Box(contentAlignment = Alignment.Center) {
                 Icon(Icons.Outlined.CheckCircle, contentDescription = null, tint = Color.White, modifier = Modifier.size(46.dp))
             }
@@ -431,13 +359,13 @@ private fun ReadyStep(name: String, onReady: () -> Unit) {
 }
 
 @Composable
-private fun SetupScaffold(
+private fun SetupFrame(
     progress: Int?,
     onBack: (() -> Unit)?,
     trailing: String?,
     onTrailing: (() -> Unit)? = null,
-    bottomContent: @Composable () -> Unit,
-    content: @Composable Column.() -> Unit,
+    bottom: @Composable () -> Unit,
+    content: @Composable () -> Unit,
 ) {
     Column(
         modifier = Modifier
@@ -455,9 +383,7 @@ private fun SetupScaffold(
                     }
                 }
             }
-            if (progress != null) {
-                Text("$progress of $TotalSetupSteps", fontSize = 12.sp, color = InkMuted, fontWeight = FontWeight.Bold)
-            }
+            if (progress != null) Text("$progress of $SetupSteps", fontSize = 12.sp, color = InkMuted, fontWeight = FontWeight.Bold)
             Box(modifier = Modifier.weight(1f), contentAlignment = Alignment.CenterEnd) {
                 if (trailing != null && onTrailing != null) {
                     Surface(onClick = onTrailing, color = Color.Transparent) {
@@ -466,37 +392,32 @@ private fun SetupScaffold(
                 }
             }
         }
-
         if (progress != null) {
             Row(modifier = Modifier.fillMaxWidth().padding(top = 14.dp), horizontalArrangement = Arrangement.spacedBy(6.dp)) {
-                repeat(TotalSetupSteps) { index ->
+                repeat(SetupSteps) { index ->
                     Box(
                         modifier = Modifier
                             .weight(1f)
                             .height(4.dp)
-                            .background(
-                                if (index < progress) Moss else Color(0xFFE3DED4),
-                                RoundedCornerShape(999.dp),
-                            ),
+                            .background(if (index < progress) Moss else Color(0xFFE3DED4), RoundedCornerShape(999.dp)),
                     )
                 }
             }
         }
-
-        Column(modifier = Modifier.weight(1f), content = content)
-        Column(modifier = Modifier.fillMaxWidth(), content = bottomContent)
+        Column(modifier = Modifier.weight(1f)) { content() }
+        Column(modifier = Modifier.fillMaxWidth()) { bottom() }
     }
 }
 
 @Composable
-private fun SetupQuestion(eyebrow: String, title: String, body: String) {
+private fun Question(eyebrow: String, title: String, body: String) {
     Text(eyebrow, fontSize = 11.sp, letterSpacing = 1.35.sp, color = Moss, fontWeight = FontWeight.ExtraBold, modifier = Modifier.padding(top = 24.dp))
     Text(title, fontSize = 31.sp, lineHeight = 34.sp, fontWeight = FontWeight.ExtraBold, letterSpacing = (-0.6).sp, modifier = Modifier.padding(top = 8.dp))
     Text(body, fontSize = 14.sp, lineHeight = 21.sp, color = Color(0xFF6D685F), modifier = Modifier.padding(top = 10.dp))
 }
 
 @Composable
-private fun SetupPreviewRow(index: String, title: String, body: String, tint: Color) {
+private fun PreviewRow(index: String, title: String, body: String, tint: Color) {
     Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(13.dp)) {
         Box(modifier = Modifier.size(42.dp).background(tint, RoundedCornerShape(15.dp)), contentAlignment = Alignment.Center) {
             Text(index, fontSize = 11.sp, color = Moss, fontWeight = FontWeight.ExtraBold)
@@ -508,15 +429,11 @@ private fun SetupPreviewRow(index: String, title: String, body: String, tint: Co
     }
 }
 
+private data class SetupOption(val title: String, val body: String, val icon: ImageVector)
+private data class LifeOption(val title: String, val icon: ImageVector, val tint: Color)
+
 @Composable
-private fun SelectableSetupCard(
-    title: String,
-    body: String,
-    icon: ImageVector,
-    selected: Boolean,
-    onClick: () -> Unit,
-    modifier: Modifier = Modifier,
-) {
+private fun FocusCard(option: SetupOption, selected: Boolean, onClick: () -> Unit, modifier: Modifier) {
     Surface(
         onClick = onClick,
         modifier = modifier.height(105.dp),
@@ -526,46 +443,37 @@ private fun SelectableSetupCard(
     ) {
         Column(modifier = Modifier.padding(14.dp)) {
             Row(verticalAlignment = Alignment.CenterVertically) {
-                Icon(icon, contentDescription = null, tint = if (selected) Moss else Color(0xFF777168), modifier = Modifier.size(20.dp))
-                if (selected) {
-                    Spacer(Modifier.weight(1f))
-                    Text("✓", color = Moss, fontWeight = FontWeight.ExtraBold)
-                }
+                Icon(option.icon, contentDescription = null, tint = if (selected) Moss else Color(0xFF777168), modifier = Modifier.size(20.dp))
+                Spacer(Modifier.weight(1f))
+                if (selected) Text("✓", color = Moss, fontWeight = FontWeight.ExtraBold)
             }
-            Text(title, fontSize = 13.sp, lineHeight = 16.sp, fontWeight = FontWeight.ExtraBold, modifier = Modifier.padding(top = 8.dp))
-            Text(body, fontSize = 10.5.sp, lineHeight = 14.sp, color = InkMuted, modifier = Modifier.padding(top = 3.dp), maxLines = 2)
+            Text(option.title, fontSize = 13.sp, lineHeight = 16.sp, fontWeight = FontWeight.ExtraBold, modifier = Modifier.padding(top = 8.dp))
+            Text(option.body, fontSize = 10.5.sp, lineHeight = 14.sp, color = InkMuted, modifier = Modifier.padding(top = 3.dp), maxLines = 2)
         }
     }
 }
 
 @Composable
-private fun LifeAreaCard(
-    title: String,
-    icon: ImageVector,
-    tint: Color,
-    selected: Boolean,
-    onClick: () -> Unit,
-    modifier: Modifier = Modifier,
-) {
+private fun LifeCard(area: LifeOption, selected: Boolean, onClick: () -> Unit, modifier: Modifier) {
     Surface(
         onClick = onClick,
         modifier = modifier.height(78.dp),
         shape = RoundedCornerShape(20.dp),
-        color = if (selected) tint else CardCream,
+        color = if (selected) area.tint else CardCream,
         border = BorderStroke(1.dp, if (selected) Moss.copy(alpha = 0.34f) else Color(0xFFE7E0D5)),
     ) {
         Row(modifier = Modifier.padding(14.dp), verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(11.dp)) {
-            Box(modifier = Modifier.size(38.dp).background(tint, RoundedCornerShape(14.dp)), contentAlignment = Alignment.Center) {
-                Icon(icon, contentDescription = null, tint = Moss, modifier = Modifier.size(20.dp))
+            Box(modifier = Modifier.size(38.dp).background(area.tint, RoundedCornerShape(14.dp)), contentAlignment = Alignment.Center) {
+                Icon(area.icon, contentDescription = null, tint = Moss, modifier = Modifier.size(20.dp))
             }
-            Text(title, fontSize = 12.sp, lineHeight = 15.sp, fontWeight = FontWeight.ExtraBold, modifier = Modifier.weight(1f))
+            Text(area.title, fontSize = 12.sp, lineHeight = 15.sp, fontWeight = FontWeight.ExtraBold, modifier = Modifier.weight(1f))
             if (selected) Text("✓", color = Moss, fontWeight = FontWeight.ExtraBold)
         }
     }
 }
 
 @Composable
-private fun RhythmCard(
+private fun RhythmRow(
     title: String,
     body: String,
     checked: Boolean,
@@ -588,7 +496,7 @@ private fun RhythmCard(
 }
 
 @Composable
-private fun PrimarySetupButton(label: String, onClick: () -> Unit) {
+private fun PrimaryButton(label: String, onClick: () -> Unit) {
     Button(
         onClick = onClick,
         modifier = Modifier.fillMaxWidth().height(56.dp),
