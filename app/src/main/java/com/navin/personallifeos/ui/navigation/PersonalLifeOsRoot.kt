@@ -55,6 +55,8 @@ private const val CaptureRoute = "capture"
 @Composable
 fun PersonalLifeOsRoot(entryViewModel: AppEntryViewModel = hiltViewModel()) {
     val onboardingComplete by entryViewModel.onboardingComplete.collectAsState()
+    val preferredName by entryViewModel.preferredName.collectAsState()
+
     if (!onboardingComplete) {
         OnboardingFlow(onFinish = entryViewModel::finishOnboarding)
         return
@@ -92,7 +94,7 @@ fun PersonalLifeOsRoot(entryViewModel: AppEntryViewModel = hiltViewModel()) {
             startDestination = AppDestination.Today.route,
             modifier = Modifier.fillMaxSize().padding(innerPadding),
         ) {
-            composable(AppDestination.Today.route) { TodayScreen() }
+            composable(AppDestination.Today.route) { TodayScreen(preferredName = preferredName) }
             composable(AppDestination.Plan.route) { PlanScreen() }
             composable(AppDestination.Journey.route) { JourneyScreen() }
             composable(AppDestination.Me.route) { MeScreen() }
