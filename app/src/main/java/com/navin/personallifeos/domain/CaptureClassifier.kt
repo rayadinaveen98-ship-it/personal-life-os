@@ -127,7 +127,7 @@ object CaptureClassifier {
 
     private fun parseProjectHint(text: String): String? {
         val patterns = listOf(
-            Regex("(?i)\\b(?:work(?:ed|ing)?\\s+on|continue\\s+|project\\s+)([A-Za-z0-9][A-Za-z0-9 _-]{1,40}?)(?=\\s+(?:today|tomorrow|tonight|at|by|in\\s+\\d|for\\s+\\d|next\\s+)|[,.!?]|$)"),
+            Regex("(?i)\\b(?:work(?:ed|ing)?\\s+on\\s+|continue\\s+|project\\s+)([A-Za-z0-9][A-Za-z0-9 _-]{1,40}?)(?=\\s+(?:today|tomorrow|tonight|at|by|in\\s+\\d|for\\s+\\d|next\\s+)|[,.!?]|$)"),
             Regex("(?i)\\bfor\\s+project\\s+([A-Za-z0-9][A-Za-z0-9 _-]{1,40}?)(?=\\s+(?:today|tomorrow|tonight|at|by|in\\s+\\d|for\\s+\\d|next\\s+)|[,.!?]|$)"),
         )
         return patterns.asSequence()
