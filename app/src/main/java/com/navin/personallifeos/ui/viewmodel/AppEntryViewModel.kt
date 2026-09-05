@@ -17,7 +17,24 @@ class AppEntryViewModel @Inject constructor(
     val onboardingComplete: StateFlow<Boolean> = preferences.onboardingComplete
         .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), false)
 
-    fun finishOnboarding() {
-        viewModelScope.launch { preferences.setOnboardingComplete(true) }
+    val preferredName: StateFlow<String> = preferences.preferredName
+        .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), "Navin")
+
+    fun finishOnboarding(
+        name: String,
+        focusAreas: Set<String>,
+        lifeAreas: Set<String>,
+        morningBrief: Boolean,
+        eveningReflection: Boolean,
+    ) {
+        viewModelScope.launch {
+            preferences.completeOnboarding(
+                name = name,
+                selectedFocusAreas = focusAreas,
+                selectedLifeAreas = lifeAreas,
+                enableMorningBrief = morningBrief,
+                enableEveningReflection = eveningReflection,
+            )
+        }
     }
 }
