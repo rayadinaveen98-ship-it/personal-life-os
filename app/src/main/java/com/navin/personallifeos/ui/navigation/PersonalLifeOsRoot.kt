@@ -72,6 +72,10 @@ fun PersonalLifeOsRoot(entryViewModel: AppEntryViewModel = hiltViewModel()) {
         }
     }
 
+    fun openCapture() {
+        if (currentRoute != CaptureRoute) navController.navigate(CaptureRoute)
+    }
+
     Scaffold(
         containerColor = MaterialTheme.colorScheme.background,
         bottomBar = {
@@ -79,9 +83,7 @@ fun PersonalLifeOsRoot(entryViewModel: AppEntryViewModel = hiltViewModel()) {
                 currentRoute = currentRoute,
                 onToday = { navigateTo(AppDestination.Today) },
                 onPlan = { navigateTo(AppDestination.Plan) },
-                onCapture = {
-                    if (currentRoute != CaptureRoute) navController.navigate(CaptureRoute)
-                },
+                onCapture = ::openCapture,
                 onJourney = { navigateTo(AppDestination.Journey) },
                 onMe = { navigateTo(AppDestination.Me) },
             )
@@ -92,7 +94,13 @@ fun PersonalLifeOsRoot(entryViewModel: AppEntryViewModel = hiltViewModel()) {
             startDestination = AppDestination.Today.route,
             modifier = Modifier.fillMaxSize().padding(innerPadding),
         ) {
-            composable(AppDestination.Today.route) { TodayScreen() }
+            composable(AppDestination.Today.route) {
+                TodayScreen(
+                    onOpenPlan = { navigateTo(AppDestination.Plan) },
+                    onOpenCapture = ::openCapture,
+                    onOpenJourney = { navigateTo(AppDestination.Journey) },
+                )
+            }
             composable(AppDestination.Plan.route) { PlanScreen() }
             composable(AppDestination.Journey.route) { JourneyScreen() }
             composable(AppDestination.Me.route) { MeScreen() }
