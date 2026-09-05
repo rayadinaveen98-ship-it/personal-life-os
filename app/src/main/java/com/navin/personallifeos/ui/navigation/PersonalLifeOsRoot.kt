@@ -76,13 +76,7 @@ fun PersonalLifeOsRoot(entryViewModel: AppEntryViewModel = hiltViewModel()) {
     val navController = rememberNavController()
     val backStack by navController.currentBackStackEntryAsState()
     val currentRoute = backStack?.destination?.route ?: AppDestination.Today.route
-    val topLevelRoutes = setOf(
-        AppDestination.Today.route,
-        AppDestination.Plan.route,
-        AppDestination.Journey.route,
-        AppDestination.Me.route,
-        CaptureRoute,
-    )
+    val topLevelRoutes = setOf(AppDestination.Today.route, AppDestination.Plan.route, AppDestination.Journey.route, AppDestination.Me.route, CaptureRoute)
 
     fun navigateTo(destination: AppDestination) {
         navController.navigate(destination.route) {
@@ -128,30 +122,20 @@ fun PersonalLifeOsRoot(entryViewModel: AppEntryViewModel = hiltViewModel()) {
                     onOpenPlan = { navigateTo(AppDestination.Plan) },
                     onOpenCapture = ::openCapture,
                     onOpenJourney = { navigateTo(AppDestination.Journey) },
-                )
-            }
-            composable(AppDestination.Plan.route) {
-                PlanScreen(
-                    onOpenCapture = ::openCapture,
                     onOpenTask = ::openTask,
-                    onOpenProject = ::openProject,
-                )
-            }
-            composable(AppDestination.Journey.route) {
-                JourneyScreen(
-                    onSearch = ::openSearch,
-                    onWrite = ::openCapture,
-                    onOpenTask = ::openTask,
+                    onOpenProject = { id -> openProject(id) },
                     onOpenJournal = ::openJournal,
                     onOpenIdea = ::openIdea,
                 )
             }
+            composable(AppDestination.Plan.route) {
+                PlanScreen(onOpenCapture = ::openCapture, onOpenTask = ::openTask, onOpenProject = ::openProject)
+            }
+            composable(AppDestination.Journey.route) {
+                JourneyScreen(onSearch = ::openSearch, onWrite = ::openCapture, onOpenTask = ::openTask, onOpenJournal = ::openJournal, onOpenIdea = ::openIdea)
+            }
             composable(AppDestination.Me.route) {
-                MeScreen(
-                    onOpenPlan = { navigateTo(AppDestination.Plan) },
-                    onSearch = ::openSearch,
-                    onSettings = ::openSettings,
-                )
+                MeScreen(onOpenPlan = { navigateTo(AppDestination.Plan) }, onSearch = ::openSearch, onSettings = ::openSettings)
             }
             composable(CaptureRoute) { CaptureScreen(onClose = { navController.popBackStack() }) }
             composable(TaskRoute) { entry ->
@@ -194,23 +178,9 @@ private fun ExactMockBottomBar(
     val barHeight = if (todayStyle) 86.dp else if (currentRoute == AppDestination.Me.route) 82.dp else 76.dp
     val barShape = if (todayStyle) RoundedCornerShape(0.dp) else RoundedCornerShape(26.dp)
 
-    Box(
-        modifier = Modifier
-            .fillMaxWidth()
-            .navigationBarsPadding()
-            .padding(horizontal = if (todayStyle) 0.dp else 14.dp, vertical = if (todayStyle) 0.dp else 8.dp),
-    ) {
-        Surface(
-            modifier = Modifier.fillMaxWidth().height(barHeight),
-            shape = barShape,
-            color = CardCream.copy(alpha = 0.98f),
-            shadowElevation = if (todayStyle) 0.dp else 6.dp,
-        ) {
-            Row(
-                modifier = Modifier.fillMaxSize().padding(horizontal = if (todayStyle) 16.dp else 8.dp, vertical = 7.dp),
-                horizontalArrangement = Arrangement.SpaceAround,
-                verticalAlignment = Alignment.CenterVertically,
-            ) {
+    Box(modifier = Modifier.fillMaxWidth().navigationBarsPadding().padding(horizontal = if (todayStyle) 0.dp else 14.dp, vertical = if (todayStyle) 0.dp else 8.dp)) {
+        Surface(modifier = Modifier.fillMaxWidth().height(barHeight), shape = barShape, color = CardCream.copy(alpha = 0.98f), shadowElevation = if (todayStyle) 0.dp else 6.dp) {
+            Row(modifier = Modifier.fillMaxSize().padding(horizontal = if (todayStyle) 16.dp else 8.dp, vertical = 7.dp), horizontalArrangement = Arrangement.SpaceAround, verticalAlignment = Alignment.CenterVertically) {
                 ExactNavItem(AppDestination.Today.icon, "Today", currentRoute == AppDestination.Today.route, onToday, todayStyle)
                 ExactNavItem(AppDestination.Plan.icon, "Plan", currentRoute == AppDestination.Plan.route, onPlan, todayStyle)
                 CaptureNavButton(active = currentRoute == CaptureRoute, todayStyle = todayStyle, onClick = onCapture)
@@ -225,10 +195,7 @@ private fun ExactMockBottomBar(
 private fun ExactNavItem(icon: ImageVector, label: String, active: Boolean, onClick: () -> Unit, todayStyle: Boolean) {
     Surface(onClick = onClick, color = Color.Transparent, modifier = Modifier.size(width = 58.dp, height = 60.dp)) {
         Column(horizontalAlignment = Alignment.CenterHorizontally, verticalArrangement = Arrangement.Center) {
-            Box(
-                modifier = Modifier.size(if (todayStyle) 26.dp else 28.dp).clip(RoundedCornerShape(8.dp)).background(if (active) MossSoft else Color.Transparent),
-                contentAlignment = Alignment.Center,
-            ) {
+            Box(modifier = Modifier.size(if (todayStyle) 26.dp else 28.dp).clip(RoundedCornerShape(8.dp)).background(if (active) MossSoft else Color.Transparent), contentAlignment = Alignment.Center) {
                 Icon(icon, contentDescription = label, tint = if (active) Moss else Color(0xFF8A857A), modifier = Modifier.size(20.dp))
             }
             Text(label, fontSize = if (todayStyle) 10.sp else 9.5.sp, fontWeight = if (active) FontWeight.ExtraBold else FontWeight.Bold, color = if (active) Moss else Color(0xFF8A857A), modifier = Modifier.padding(top = 4.dp))
