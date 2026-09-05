@@ -18,7 +18,7 @@ class RescheduleRemindersWorker(
             applicationContext,
             AppDatabase::class.java,
             "personal-life-os.db",
-        ).fallbackToDestructiveMigration().build()
+        ).build()
 
         val scheduler = ReminderScheduler(applicationContext)
         db.appDao().pendingReminders(System.currentTimeMillis()).forEach { task ->
