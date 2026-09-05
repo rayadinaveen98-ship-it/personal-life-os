@@ -73,4 +73,24 @@ class AppPreferences @Inject constructor(
     suspend fun setThemeMode(value: String) {
         context.dataStore.edit { it[Keys.ThemeMode] = value }
     }
+
+    suspend fun setPreferredName(value: String) {
+        context.dataStore.edit { it[Keys.PreferredName] = value.trim().ifBlank { "Navin" } }
+    }
+
+    suspend fun setMorningBrief(value: Boolean) {
+        context.dataStore.edit { it[Keys.MorningBrief] = value }
+    }
+
+    suspend fun setEveningReflection(value: Boolean) {
+        context.dataStore.edit { it[Keys.EveningReflection] = value }
+    }
+
+    suspend fun setFocusAreas(value: Set<String>) {
+        context.dataStore.edit { it[Keys.FocusAreas] = value }
+    }
+
+    suspend fun setLifeAreas(value: Set<String>) {
+        context.dataStore.edit { it[Keys.LifeAreas] = value }
+    }
 }
