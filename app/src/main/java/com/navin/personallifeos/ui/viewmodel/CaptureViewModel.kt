@@ -42,6 +42,8 @@ class CaptureViewModel @Inject constructor(
     private val _message = MutableStateFlow<String?>(null)
     val message: StateFlow<String?> = _message.asStateFlow()
 
+    private var savedEntityId: String? = null
+
     init {
         viewModelScope.launch {
             activeProjects.collect {
@@ -58,10 +60,12 @@ class CaptureViewModel @Inject constructor(
         _suggestion.value = classified
         _resolvedProjectTitle.value = resolveProject(classified)?.title
         _saved.value = false
+        savedEntityId = null
         _message.value = null
     }
 
     fun selectKind(kind: CaptureKind) {
+        if (_saved.value) return
         val current = _suggestion.value ?: return
         val reminderAt = if (kind == CaptureKind.REMINDER) current.reminderAt ?: current.dueAt else null
         val dueAt = when (kind) {
@@ -77,10 +81,14 @@ class CaptureViewModel @Inject constructor(
         _suggestion.value = null
         _resolvedProjectTitle.value = null
         _saved.value = false
+        savedEntityId = null
         _message.value = null
     }
 
+    fun canScheduleExactAlarm(): Boolean = reminderScheduler.canScheduleExact()
+
     fun save() {
+        if (_saved.value) return
         val suggestion = _suggestion.value ?: return
         viewModelScope.launch {
             if (suggestion.kind == CaptureKind.REMINDER && suggestion.reminderAt == null) {
@@ -109,43 +117,65 @@ class CaptureViewModel @Inject constructor(
                         task,
                         if (suggestion.kind == CaptureKind.REMINDER) "reminder_created" else "task_created",
                     )
+                    savedEntityId = id
                     if (suggestion.kind == CaptureKind.REMINDER && suggestion.reminderAt != null) {
                         val scheduled = reminderScheduler.scheduleExact(id, task.title, suggestion.reminderAt)
                         if (!scheduled) {
-                            _message.value = "Saved. Exact-alarm permission is still needed for this reminder to fire precisely."
+                            _message.value = "Saved safely. Allow exact alarms, then tap Finish reminder setup so it can fire precisely."
                         }
                     }
                 }
 
-                CaptureKind.DIARY -> repository.saveJournal(
-                    JournalEntryEntity(
-                        id = id,
-                        title = suggestion.title.ifBlank { "Journal · ${LocalDate.now()}" },
-                        body = suggestion.originalText,
-                        createdAt = now,
-                        updatedAt = now,
-                    ),
-                )
+                CaptureKind.DIARY -> {
+                    repository.saveJournal(
+                        JournalEntryEntity(
+                            id = id,
+                            title = suggestion.title.ifBlank { "Journal · ${LocalDate.now()}" },
+                            body = suggestion.originalText,
+                            createdAt = now,
+                            updatedAt = now,
+                        ),
+                    )
+                    savedEntityId = id
+                }
 
-                CaptureKind.IDEA -> repository.saveIdea(
-                    IdeaEntity(
-                        id = id,
+                CaptureKind.IDEA -> {
+                    repository.saveIdea(
+                        IdeaEntity(
+                            id = id,
+                            title = suggestion.title,
+                            body = suggestion.originalText,
+                            projectId = project?.id,
+                            createdAt = now,
+                            updatedAt = now,
+                        ),
+                    )
+                    savedEntityId = id
+                }
+
+                CaptureKind.ACTIVITY -> {
+                    repository.saveActivity(
                         title = suggestion.title,
-                        body = suggestion.originalText,
                         projectId = project?.id,
-                        createdAt = now,
-                        updatedAt = now,
-                    ),
-                )
-
-                CaptureKind.ACTIVITY -> repository.saveActivity(
-                    title = suggestion.title,
-                    projectId = project?.id,
-                    durationMinutes = suggestion.durationMinutes,
-                    occurredAt = now,
-                )
+                        durationMinutes = suggestion.durationMinutes,
+                        occurredAt = now,
+                    )
+                    savedEntityId = id
+                }
             }
             _saved.value = true
+        }
+    }
+
+    fun retryExactAlarm() {
+        val id = savedEntityId ?: return
+        val suggestion = _suggestion.value ?: return
+        val trigger = suggestion.reminderAt ?: return
+        if (suggestion.kind != CaptureKind.REMINDER) return
+        if (reminderScheduler.scheduleExact(id, suggestion.title, trigger)) {
+            _message.value = null
+        } else {
+            _message.value = "Exact-alarm access is still off. Allow it in Android settings, then try again."
         }
     }
 
