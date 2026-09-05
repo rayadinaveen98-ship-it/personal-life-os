@@ -29,12 +29,12 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.hilt.navigation.compose.hiltViewModel
+import com.navin.personallifeos.data.local.TaskEntity
 import com.navin.personallifeos.ui.theme.CardCream
 import com.navin.personallifeos.ui.theme.GoldSoft
 import com.navin.personallifeos.ui.theme.LavenderSoft
 import com.navin.personallifeos.ui.theme.Moss
 import com.navin.personallifeos.ui.theme.MossSoft
-import com.navin.personallifeos.ui.theme.MutedGold
 import com.navin.personallifeos.ui.theme.SoftLavender
 import com.navin.personallifeos.ui.theme.Terracotta
 import com.navin.personallifeos.ui.theme.TerracottaSoft
@@ -45,10 +45,21 @@ import java.util.Date
 import java.util.Locale
 
 @Composable
-fun TodayScreen(viewModel: HomeViewModel = hiltViewModel()) {
+fun TodayScreen(
+    onOpenPlan: () -> Unit = {},
+    onOpenCapture: () -> Unit = {},
+    onOpenJourney: () -> Unit = {},
+    viewModel: HomeViewModel = hiltViewModel(),
+) {
     val pending by viewModel.pendingTasks.collectAsState()
     val allTasks by viewModel.allTasks.collectAsState()
     val projects by viewModel.projects.collectAsState()
+    val journal by viewModel.journal.collectAsState()
+    val activity by viewModel.activity.collectAsState()
+    val preferredName by viewModel.preferredName.collectAsState()
+    val focusAreas by viewModel.focusAreas.collectAsState()
+    val lifeAreas by viewModel.lifeAreas.collectAsState()
+    val eveningReflection by viewModel.eveningReflection.collectAsState()
 
     val now = Calendar.getInstance()
     val greeting = when (now.get(Calendar.HOUR_OF_DAY)) {
@@ -56,11 +67,26 @@ fun TodayScreen(viewModel: HomeViewModel = hiltViewModel()) {
         in 12..16 -> "Good afternoon"
         else -> "Good evening"
     }
-    val focus = pending.firstOrNull()
+    val displayName = preferredName.trim().ifBlank { "Navin" }
+    val focus = pending
+        .sortedWith(
+            compareByDescending<TaskEntity> { it.priority }
+                .thenBy { it.dueAt ?: Long.MAX_VALUE }
+                .thenBy { it.createdAt },
+        )
+        .firstOrNull()
     val focusProject = projects.firstOrNull { it.id == focus?.projectId }
-    val nextReminder = pending.firstOrNull { it.reminderAt != null }
-    val completedCount = allTasks.count { it.completedAt != null }
-    val totalCount = allTasks.size
+    val nextReminder = pending
+        .filter { it.reminderAt != null }
+        .minByOrNull { it.reminderAt ?: Long.MAX_VALUE }
+    val completedToday = allTasks.count { task -> task.completedAt?.let(::isToday) == true }
+    val dueToday = pending.count { task -> task.dueAt?.let(::isToday) == true }
+    val recentActivity = activity.firstOrNull()
+    val latestJournal = journal.firstOrNull()
+    val activeArea = focusProject?.title
+        ?: lifeAreas.sorted().firstOrNull()
+        ?: focusAreas.sorted().firstOrNull()
+        ?: "Your life"
 
     Column(
         modifier = Modifier
@@ -69,7 +95,7 @@ fun TodayScreen(viewModel: HomeViewModel = hiltViewModel()) {
     ) {
         Text("YOUR DAY", fontSize = 12.sp, color = Color(0xFF737267), letterSpacing = 0.6.sp)
         Text(
-            "$greeting,\nNavin.",
+            "$greeting,\n$displayName.",
             fontSize = 30.sp,
             lineHeight = 31.sp,
             fontWeight = FontWeight.ExtraBold,
@@ -83,16 +109,55 @@ fun TodayScreen(viewModel: HomeViewModel = hiltViewModel()) {
             modifier = Modifier.padding(top = 7.dp),
         )
 
+        if (lifeAreas.isNotEmpty()) {
+            Row(
+                modifier = Modifier.padding(top = 14.dp),
+                horizontalArrangement = Arrangement.spacedBy(7.dp),
+            ) {
+                lifeAreas.sorted().take(2).forEach { area ->
+                    Text(
+                        area,
+                        fontSize = 10.5.sp,
+                        color = Moss,
+                        fontWeight = FontWeight.Bold,
+                        modifier = Modifier
+                            .background(MossSoft, RoundedCornerShape(999.dp))
+                            .padding(horizontal = 9.dp, vertical = 6.dp),
+                    )
+                }
+                if (lifeAreas.size > 2) {
+                    Text(
+                        "+${lifeAreas.size - 2}",
+                        fontSize = 10.5.sp,
+                        color = Color(0xFF77736A),
+                        fontWeight = FontWeight.Bold,
+                        modifier = Modifier
+                            .background(CardCream, RoundedCornerShape(999.dp))
+                            .padding(horizontal = 9.dp, vertical = 6.dp),
+                    )
+                }
+            }
+        }
+
         Row(
-            modifier = Modifier.fillMaxWidth().padding(top = 23.dp),
+            modifier = Modifier.fillMaxWidth().padding(top = 22.dp),
             horizontalArrangement = Arrangement.SpaceBetween,
             verticalAlignment = Alignment.CenterVertically,
         ) {
             Text("Today’s focus", fontSize = 14.sp, fontWeight = FontWeight.ExtraBold)
-            Text("Change", fontSize = 11.sp, color = Moss, fontWeight = FontWeight.Bold)
+            Surface(onClick = if (focus == null) onOpenCapture else onOpenPlan, color = Color.Transparent) {
+                Text(
+                    if (focus == null) "Add one" else "Open plan",
+                    fontSize = 11.sp,
+                    color = Moss,
+                    fontWeight = FontWeight.Bold,
+                    modifier = Modifier.padding(4.dp),
+                )
+            }
         }
 
         Surface(
+            onClick = if (focus == null) onOpenCapture else onOpenPlan,
             modifier = Modifier.fillMaxWidth().padding(top = 10.dp),
             shape = RoundedCornerShape(24.dp),
             color = Moss,
@@ -112,11 +177,12 @@ fun TodayScreen(viewModel: HomeViewModel = hiltViewModel()) {
                 )
                 Column(modifier = Modifier.padding(19.dp)) {
                     Text(
-                        "PRIORITY · ${focusProject?.title?.uppercase() ?: "TODAY"}",
+                        "PRIORITY · ${focusProject?.title?.uppercase() ?: activeArea.uppercase()}",
                         fontSize = 11.sp,
                         letterSpacing = 1.sp,
                         fontWeight = FontWeight.Bold,
                         color = Color.White.copy(alpha = 0.78f),
+                        maxLines = 1,
                     )
                     Text(
                         focus?.title ?: "Choose one meaningful thing to move forward",
@@ -134,14 +200,18 @@ fun TodayScreen(viewModel: HomeViewModel = hiltViewModel()) {
                         verticalAlignment = Alignment.CenterVertically,
                     ) {
                         Text(
-                            "${pending.size.coerceAtMost(9)} next actions",
+                            if (pending.isEmpty()) "Capture first action" else "${pending.size} open actions",
                             fontSize = 11.sp,
                             color = Color.White,
                             modifier = Modifier
                                 .background(Color.White.copy(alpha = 0.13f), RoundedCornerShape(999.dp))
                                 .padding(horizontal = 10.dp, vertical = 7.dp),
                         )
-                        Text("Last worked today", fontSize = 11.sp, color = Color.White.copy(alpha = 0.92f))
+                        Text(
+                            if (dueToday > 0) "$dueToday due today" else if (completedToday > 0) "$completedToday finished today" else "Keep it light",
+                            fontSize = 11.sp,
+                            color = Color.White.copy(alpha = 0.92f),
+                        )
                     }
                 }
             }
@@ -153,70 +223,78 @@ fun TodayScreen(viewModel: HomeViewModel = hiltViewModel()) {
             verticalAlignment = Alignment.CenterVertically,
         ) {
             Text("Keep moving", fontSize = 14.sp, fontWeight = FontWeight.ExtraBold)
-            Text("See all", fontSize = 11.sp, color = Moss, fontWeight = FontWeight.Bold)
+            Surface(onClick = onOpenPlan, color = Color.Transparent) {
+                Text("See plan", fontSize = 11.sp, color = Moss, fontWeight = FontWeight.Bold, modifier = Modifier.padding(4.dp))
+            }
         }
 
         Column(modifier = Modifier.padding(top = 10.dp), verticalArrangement = Arrangement.spacedBy(10.dp)) {
             Row(horizontalArrangement = Arrangement.spacedBy(10.dp)) {
                 TodayMiniCard(
                     modifier = Modifier.weight(1f),
+                    onClick = onOpenPlan,
                     icon = "✓",
                     iconBg = MossSoft,
                     iconColor = Moss,
                     label = "Tasks",
-                    title = "$completedCount of $totalCount done",
-                    meta = "${pending.size} important left",
+                    title = if (completedToday > 0) "$completedToday done today" else "${pending.size} open actions",
+                    meta = if (dueToday > 0) "$dueToday due today" else "Tap to open your plan",
                 )
                 TodayMiniCard(
                     modifier = Modifier.weight(1f),
-                    icon = "★",
+                    onClick = onOpenPlan,
+                    icon = "◎",
                     iconBg = GoldSoft,
                     iconColor = Color(0xFF9D6C28),
-                    label = "Goal",
-                    title = "Game development",
-                    meta = "68% this month",
-                    showProgress = true,
+                    label = "Life area",
+                    title = activeArea,
+                    meta = if (projects.isNotEmpty()) "${projects.size} active project${if (projects.size == 1) "" else "s"}" else "Chosen during setup",
                 )
             }
             Row(horizontalArrangement = Arrangement.spacedBy(10.dp)) {
                 TodayMiniCard(
                     modifier = Modifier.weight(1f),
+                    onClick = onOpenJourney,
                     icon = "↗",
                     iconBg = LavenderSoft,
                     iconColor = Color(0xFF75698A),
-                    label = "Continue learning",
-                    title = "Blender lighting",
-                    meta = "Lesson 7 · 32 min",
+                    label = "Recent story",
+                    title = recentActivity?.title ?: latestJournal?.title ?: "Your story starts here",
+                    meta = recentActivity?.let { activityLabel(it.type, it.occurredAt) } ?: "Capture something you did",
                 )
                 TodayMiniCard(
                     modifier = Modifier.weight(1f),
+                    onClick = if (nextReminder == null) onOpenCapture else onOpenPlan,
                     icon = "◷",
                     iconBg = TerracottaSoft,
                     iconColor = Terracotta,
                     label = "Reminder",
-                    title = nextReminder?.title?.take(28) ?: "Movie release check",
-                    meta = nextReminder?.reminderAt?.let { reminderLabel(it) } ?: "Tomorrow · 9:00 AM",
+                    title = nextReminder?.title?.take(28) ?: "Add a reminder",
+                    meta = nextReminder?.reminderAt?.let { reminderLabel(it) } ?: "Capture it in natural language",
                 )
             }
         }
 
-        Surface(
-            modifier = Modifier.fillMaxWidth().padding(top = 12.dp),
-            shape = RoundedCornerShape(22.dp),
-            color = LavenderSoft,
-        ) {
-            Row(
-                modifier = Modifier.padding(16.dp),
-                horizontalArrangement = Arrangement.spacedBy(12.dp),
-                verticalAlignment = Alignment.Top,
+        if (eveningReflection) {
+            Surface(
+                onClick = onOpenCapture,
+                modifier = Modifier.fillMaxWidth().padding(top = 12.dp),
+                shape = RoundedCornerShape(22.dp),
+                color = LavenderSoft,
             ) {
-                Box(
-                    modifier = Modifier.size(32.dp).clip(CircleShape).background(SoftLavender),
-                    contentAlignment = Alignment.Center,
-                ) { Text("☾", color = Color.White, fontSize = 15.sp) }
-                Column {
-                    Text("What was worth remembering today?", fontSize = 13.sp, lineHeight = 18.sp, fontWeight = FontWeight.Bold)
-                    Text("Tap to add tonight’s reflection", fontSize = 10.5.sp, color = Color(0xFF777081), modifier = Modifier.padding(top = 4.dp))
+                Row(
+                    modifier = Modifier.padding(16.dp),
+                    horizontalArrangement = Arrangement.spacedBy(12.dp),
+                    verticalAlignment = Alignment.Top,
+                ) {
+                    Box(
+                        modifier = Modifier.size(32.dp).clip(CircleShape).background(SoftLavender),
+                        contentAlignment = Alignment.Center,
+                    ) { Text("☾", color = Color.White, fontSize = 15.sp) }
+                    Column {
+                        Text("What was worth remembering today?", fontSize = 13.sp, lineHeight = 18.sp, fontWeight = FontWeight.Bold)
+                        Text("Tap to capture tonight’s reflection", fontSize = 10.5.sp, color = Color(0xFF777081), modifier = Modifier.padding(top = 4.dp))
+                    }
                 }
             }
         }
@@ -227,15 +305,16 @@ fun TodayScreen(viewModel: HomeViewModel = hiltViewModel()) {
 @Composable
 private fun TodayMiniCard(
     modifier: Modifier,
+    onClick: () -> Unit,
     icon: String,
     iconBg: Color,
     iconColor: Color,
     label: String,
     title: String,
     meta: String,
-    showProgress: Boolean = false,
 ) {
     Surface(
+        onClick = onClick,
         modifier = modifier.height(112.dp),
         shape = RoundedCornerShape(20.dp),
         color = CardCream,
@@ -248,19 +327,37 @@ private fun TodayMiniCard(
             ) { Text(icon, fontSize = 14.sp, color = iconColor) }
             Text(label, fontSize = 11.sp, color = Color(0xFF77756B), modifier = Modifier.padding(top = 8.dp))
             Text(title, fontSize = 15.sp, lineHeight = 17.sp, fontWeight = FontWeight.ExtraBold, maxLines = 2)
-            if (showProgress) {
-                Box(
-                    modifier = Modifier.fillMaxWidth().padding(top = 7.dp).height(6.dp)
-                        .clip(RoundedCornerShape(999.dp)).background(Color(0xFFE6E2D9)),
-                ) {
-                    Box(
-                        modifier = Modifier.fillMaxWidth(0.68f).height(6.dp)
-                            .background(MutedGold, RoundedCornerShape(999.dp)),
-                    )
-                }
-            }
-            Text(meta, fontSize = 10.5.sp, color = Color(0xFF87857B), modifier = Modifier.padding(top = if (showProgress) 4.dp else 6.dp), maxLines = 1)
+            Text(meta, fontSize = 10.5.sp, color = Color(0xFF87857B), modifier = Modifier.padding(top = 6.dp), maxLines = 1)
         }
+    }
+}
+
+private fun isToday(time: Long): Boolean {
+    val now = Calendar.getInstance()
+    val target = Calendar.getInstance().apply { timeInMillis = time }
+    return now.get(Calendar.YEAR) == target.get(Calendar.YEAR) &&
+        now.get(Calendar.DAY_OF_YEAR) == target.get(Calendar.DAY_OF_YEAR)
+}
+
+private fun activityLabel(type: String, time: Long): String {
+    val label = when (type) {
+        "task_completed" -> "Task completed"
+        "task_created" -> "Task added"
+        "journal" -> "Journal entry"
+        "idea" -> "Idea captured"
+        else -> type.replace('_', ' ').replaceFirstChar { it.uppercase() }
+    }
+    return "$label · ${relativeTime(time)}"
+}
+
+private fun relativeTime(time: Long): String {
+    val minutes = ((System.currentTimeMillis() - time).coerceAtLeast(0L) / 60_000L).toInt()
+    return when {
+        minutes < 1 -> "just now"
+        minutes < 60 -> "${minutes}m ago"
+        minutes < 1_440 -> "${minutes / 60}h ago"
+        minutes < 2_880 -> "yesterday"
+        else -> SimpleDateFormat("MMM d", Locale.getDefault()).format(Date(time))
     }
 }
 
