@@ -153,7 +153,7 @@ private fun PlanSegment(label: String, active: Boolean, modifier: Modifier) {
 private fun PlanTaskRow(task: TaskEntity, onComplete: () -> Unit) {
     Surface(onClick = onComplete, modifier = Modifier.fillMaxWidth(), shape = RoundedCornerShape(18.dp), color = CardCream, shadowElevation = 1.dp) {
         Row(modifier = Modifier.padding(13.dp), verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(12.dp)) {
-            Box(modifier = Modifier.size(22.dp).border(2.dp, Color(0xFFA9A496), CircleShape), contentAlignment = Alignment.Center)
+            Box(modifier = Modifier.size(22.dp).border(2.dp, Color(0xFFA9A496), CircleShape)) {}
             Column(modifier = Modifier.weight(1f)) {
                 Text(task.title, fontSize = 13.sp, lineHeight = 16.sp, fontWeight = FontWeight.Bold, maxLines = 1)
                 Row(horizontalArrangement = Arrangement.spacedBy(8.dp), modifier = Modifier.padding(top = 4.dp), verticalAlignment = Alignment.CenterVertically) {
