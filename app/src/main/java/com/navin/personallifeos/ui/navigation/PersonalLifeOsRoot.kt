@@ -39,10 +39,16 @@ import androidx.navigation.compose.composable
 import androidx.navigation.compose.currentBackStackEntryAsState
 import androidx.navigation.compose.rememberNavController
 import com.navin.personallifeos.ui.screens.CaptureScreen
+import com.navin.personallifeos.ui.screens.IdeaDetailScreen
+import com.navin.personallifeos.ui.screens.JournalDetailScreen
 import com.navin.personallifeos.ui.screens.JourneyScreen
 import com.navin.personallifeos.ui.screens.MeScreen
 import com.navin.personallifeos.ui.screens.OnboardingFlow
 import com.navin.personallifeos.ui.screens.PlanScreen
+import com.navin.personallifeos.ui.screens.ProjectDetailScreen
+import com.navin.personallifeos.ui.screens.SearchScreen
+import com.navin.personallifeos.ui.screens.SettingsScreen
+import com.navin.personallifeos.ui.screens.TaskDetailScreen
 import com.navin.personallifeos.ui.screens.TodayScreen
 import com.navin.personallifeos.ui.theme.CardCream
 import com.navin.personallifeos.ui.theme.Ink
@@ -51,6 +57,13 @@ import com.navin.personallifeos.ui.theme.MossSoft
 import com.navin.personallifeos.ui.viewmodel.AppEntryViewModel
 
 private const val CaptureRoute = "capture"
+private const val TaskRoute = "task/{taskId}"
+private const val ProjectNewRoute = "project/new"
+private const val ProjectRoute = "project/{projectId}"
+private const val SearchRoute = "search"
+private const val SettingsRoute = "settings"
+private const val JournalRoute = "journal/{entryId}"
+private const val IdeaRoute = "idea/{ideaId}"
 
 @Composable
 fun PersonalLifeOsRoot(entryViewModel: AppEntryViewModel = hiltViewModel()) {
@@ -63,6 +76,13 @@ fun PersonalLifeOsRoot(entryViewModel: AppEntryViewModel = hiltViewModel()) {
     val navController = rememberNavController()
     val backStack by navController.currentBackStackEntryAsState()
     val currentRoute = backStack?.destination?.route ?: AppDestination.Today.route
+    val topLevelRoutes = setOf(
+        AppDestination.Today.route,
+        AppDestination.Plan.route,
+        AppDestination.Journey.route,
+        AppDestination.Me.route,
+        CaptureRoute,
+    )
 
     fun navigateTo(destination: AppDestination) {
         navController.navigate(destination.route) {
@@ -76,17 +96,26 @@ fun PersonalLifeOsRoot(entryViewModel: AppEntryViewModel = hiltViewModel()) {
         if (currentRoute != CaptureRoute) navController.navigate(CaptureRoute)
     }
 
+    fun openTask(id: String) = navController.navigate("task/$id")
+    fun openProject(id: String?) = navController.navigate(id?.let { "project/$it" } ?: ProjectNewRoute)
+    fun openJournal(id: String) = navController.navigate("journal/$id")
+    fun openIdea(id: String) = navController.navigate("idea/$id")
+    fun openSearch() = navController.navigate(SearchRoute)
+    fun openSettings() = navController.navigate(SettingsRoute)
+
     Scaffold(
         containerColor = MaterialTheme.colorScheme.background,
         bottomBar = {
-            ExactMockBottomBar(
-                currentRoute = currentRoute,
-                onToday = { navigateTo(AppDestination.Today) },
-                onPlan = { navigateTo(AppDestination.Plan) },
-                onCapture = ::openCapture,
-                onJourney = { navigateTo(AppDestination.Journey) },
-                onMe = { navigateTo(AppDestination.Me) },
-            )
+            if (currentRoute in topLevelRoutes) {
+                ExactMockBottomBar(
+                    currentRoute = currentRoute,
+                    onToday = { navigateTo(AppDestination.Today) },
+                    onPlan = { navigateTo(AppDestination.Plan) },
+                    onCapture = ::openCapture,
+                    onJourney = { navigateTo(AppDestination.Journey) },
+                    onMe = { navigateTo(AppDestination.Me) },
+                )
+            }
         },
     ) { innerPadding ->
         NavHost(
@@ -101,10 +130,53 @@ fun PersonalLifeOsRoot(entryViewModel: AppEntryViewModel = hiltViewModel()) {
                     onOpenJourney = { navigateTo(AppDestination.Journey) },
                 )
             }
-            composable(AppDestination.Plan.route) { PlanScreen() }
-            composable(AppDestination.Journey.route) { JourneyScreen() }
-            composable(AppDestination.Me.route) { MeScreen() }
+            composable(AppDestination.Plan.route) {
+                PlanScreen(
+                    onOpenCapture = ::openCapture,
+                    onOpenTask = ::openTask,
+                    onOpenProject = ::openProject,
+                )
+            }
+            composable(AppDestination.Journey.route) {
+                JourneyScreen(
+                    onSearch = ::openSearch,
+                    onWrite = ::openCapture,
+                    onOpenTask = ::openTask,
+                    onOpenJournal = ::openJournal,
+                    onOpenIdea = ::openIdea,
+                )
+            }
+            composable(AppDestination.Me.route) {
+                MeScreen(
+                    onOpenPlan = { navigateTo(AppDestination.Plan) },
+                    onSearch = ::openSearch,
+                    onSettings = ::openSettings,
+                )
+            }
             composable(CaptureRoute) { CaptureScreen(onClose = { navController.popBackStack() }) }
+            composable(TaskRoute) { entry ->
+                entry.arguments?.getString("taskId")?.let { id -> TaskDetailScreen(id, onBack = { navController.popBackStack() }) }
+            }
+            composable(ProjectNewRoute) { ProjectDetailScreen(projectId = null, onBack = { navController.popBackStack() }) }
+            composable(ProjectRoute) { entry ->
+                entry.arguments?.getString("projectId")?.let { id -> ProjectDetailScreen(id, onBack = { navController.popBackStack() }) }
+            }
+            composable(SearchRoute) {
+                SearchScreen(
+                    onBack = { navController.popBackStack() },
+                    onTask = ::openTask,
+                    onProject = { id -> openProject(id) },
+                    onJournal = ::openJournal,
+                    onIdea = ::openIdea,
+                )
+            }
+            composable(SettingsRoute) { SettingsScreen(onBack = { navController.popBackStack() }) }
+            composable(JournalRoute) { entry ->
+                entry.arguments?.getString("entryId")?.let { id -> JournalDetailScreen(id, onBack = { navController.popBackStack() }) }
+            }
+            composable(IdeaRoute) { entry ->
+                entry.arguments?.getString("ideaId")?.let { id -> IdeaDetailScreen(id, onBack = { navController.popBackStack() }) }
+            }
         }
     }
 }
@@ -141,11 +213,7 @@ private fun ExactMockBottomBar(
             ) {
                 ExactNavItem(AppDestination.Today.icon, "Today", currentRoute == AppDestination.Today.route, onToday, todayStyle)
                 ExactNavItem(AppDestination.Plan.icon, "Plan", currentRoute == AppDestination.Plan.route, onPlan, todayStyle)
-                CaptureNavButton(
-                    active = currentRoute == CaptureRoute,
-                    todayStyle = todayStyle,
-                    onClick = onCapture,
-                )
+                CaptureNavButton(active = currentRoute == CaptureRoute, todayStyle = todayStyle, onClick = onCapture)
                 ExactNavItem(AppDestination.Journey.icon, "Journey", currentRoute == AppDestination.Journey.route, onJourney, todayStyle)
                 ExactNavItem(AppDestination.Me.icon, "Me", currentRoute == AppDestination.Me.route, onMe, todayStyle)
             }
@@ -154,31 +222,16 @@ private fun ExactMockBottomBar(
 }
 
 @Composable
-private fun ExactNavItem(
-    icon: ImageVector,
-    label: String,
-    active: Boolean,
-    onClick: () -> Unit,
-    todayStyle: Boolean,
-) {
+private fun ExactNavItem(icon: ImageVector, label: String, active: Boolean, onClick: () -> Unit, todayStyle: Boolean) {
     Surface(onClick = onClick, color = Color.Transparent, modifier = Modifier.size(width = 58.dp, height = 60.dp)) {
         Column(horizontalAlignment = Alignment.CenterHorizontally, verticalArrangement = Arrangement.Center) {
             Box(
-                modifier = Modifier
-                    .size(if (todayStyle) 26.dp else 28.dp)
-                    .clip(RoundedCornerShape(8.dp))
-                    .background(if (active) MossSoft else Color.Transparent),
+                modifier = Modifier.size(if (todayStyle) 26.dp else 28.dp).clip(RoundedCornerShape(8.dp)).background(if (active) MossSoft else Color.Transparent),
                 contentAlignment = Alignment.Center,
             ) {
                 Icon(icon, contentDescription = label, tint = if (active) Moss else Color(0xFF8A857A), modifier = Modifier.size(20.dp))
             }
-            Text(
-                label,
-                fontSize = if (todayStyle) 10.sp else 9.5.sp,
-                fontWeight = if (active) FontWeight.ExtraBold else FontWeight.Bold,
-                color = if (active) Moss else Color(0xFF8A857A),
-                modifier = Modifier.padding(top = 4.dp),
-            )
+            Text(label, fontSize = if (todayStyle) 10.sp else 9.5.sp, fontWeight = if (active) FontWeight.ExtraBold else FontWeight.Bold, color = if (active) Moss else Color(0xFF8A857A), modifier = Modifier.padding(top = 4.dp))
         }
     }
 }
@@ -189,20 +242,10 @@ private fun CaptureNavButton(active: Boolean, todayStyle: Boolean, onClick: () -
     val rounded = if (todayStyle) RoundedCornerShape(18.dp) else if (active) CircleShape else RoundedCornerShape(20.dp)
     Surface(onClick = onClick, color = Color.Transparent, modifier = Modifier.size(width = 62.dp, height = 72.dp)) {
         Column(horizontalAlignment = Alignment.CenterHorizontally, verticalArrangement = Arrangement.Center) {
-            Surface(
-                onClick = onClick,
-                modifier = Modifier.size(if (todayStyle) 58.dp else 54.dp).offset(y = (-8).dp),
-                shape = rounded,
-                color = bg,
-                shadowElevation = 7.dp,
-            ) {
-                Box(contentAlignment = Alignment.Center) {
-                    Icon(Icons.Rounded.Add, contentDescription = "Capture", tint = Color.White, modifier = Modifier.size(29.dp))
-                }
+            Surface(onClick = onClick, modifier = Modifier.size(if (todayStyle) 58.dp else 54.dp).offset(y = (-8).dp), shape = rounded, color = bg, shadowElevation = 7.dp) {
+                Box(contentAlignment = Alignment.Center) { Icon(Icons.Rounded.Add, contentDescription = "Capture", tint = Color.White, modifier = Modifier.size(29.dp)) }
             }
-            if (todayStyle || active) {
-                Text("Capture", fontSize = 9.5.sp, fontWeight = FontWeight.ExtraBold, color = if (todayStyle) Ink else Moss, modifier = Modifier.offset(y = (-6).dp))
-            }
+            if (todayStyle || active) Text("Capture", fontSize = 9.5.sp, fontWeight = FontWeight.ExtraBold, color = if (todayStyle) Ink else Moss, modifier = Modifier.offset(y = (-6).dp))
         }
     }
 }
