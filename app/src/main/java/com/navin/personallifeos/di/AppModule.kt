@@ -22,7 +22,7 @@ object AppModule {
             context,
             AppDatabase::class.java,
             "personal-life-os.db",
-        ).fallbackToDestructiveMigration().build()
+        ).build()
 
     @Provides
     fun provideAppDao(database: AppDatabase): AppDao = database.appDao()
