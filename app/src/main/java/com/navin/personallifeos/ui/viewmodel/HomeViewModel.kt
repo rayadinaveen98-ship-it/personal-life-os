@@ -7,6 +7,7 @@ import com.navin.personallifeos.data.local.IdeaEntity
 import com.navin.personallifeos.data.local.JournalEntryEntity
 import com.navin.personallifeos.data.local.ProjectEntity
 import com.navin.personallifeos.data.local.TaskEntity
+import com.navin.personallifeos.data.preferences.AppPreferences
 import com.navin.personallifeos.data.repository.LifeRepository
 import com.navin.personallifeos.reminders.ReminderScheduler
 import dagger.hilt.android.lifecycle.HiltViewModel
@@ -20,6 +21,7 @@ import kotlinx.coroutines.launch
 class HomeViewModel @Inject constructor(
     private val repository: LifeRepository,
     private val reminderScheduler: ReminderScheduler,
+    preferences: AppPreferences,
 ) : ViewModel() {
     val pendingTasks: StateFlow<List<TaskEntity>> = repository.pendingTasks()
         .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), emptyList())
@@ -38,6 +40,21 @@ class HomeViewModel @Inject constructor(
 
     val activity: StateFlow<List<ActivityEventEntity>> = repository.recentActivity(40)
         .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), emptyList())
+
+    val preferredName: StateFlow<String> = preferences.preferredName
+        .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), "Navin")
+
+    val focusAreas: StateFlow<Set<String>> = preferences.focusAreas
+        .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), emptySet())
+
+    val lifeAreas: StateFlow<Set<String>> = preferences.lifeAreas
+        .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), emptySet())
+
+    val morningBrief: StateFlow<Boolean> = preferences.morningBrief
+        .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), true)
+
+    val eveningReflection: StateFlow<Boolean> = preferences.eveningReflection
+        .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), true)
 
     fun completeTask(task: TaskEntity) {
         viewModelScope.launch {
