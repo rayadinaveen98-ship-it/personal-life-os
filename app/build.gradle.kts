@@ -16,8 +16,8 @@ android {
         applicationId = "com.navin.personallifeos"
         minSdk = 24
         targetSdk = 36
-        versionCode = 2
-        versionName = "0.2.0-alpha"
+        versionCode = 3
+        versionName = "0.3.0-visual-alpha"
 
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
         vectorDrawables.useSupportLibrary = true
@@ -58,8 +58,6 @@ kapt {
 }
 
 dependencies {
-    // Keep the AndroidX layer on the API-36 / AGP-8 compatible generation.
-    // Newer 2026 releases have moved to compileSdk 37 + AGP 9.1.
     implementation(platform("androidx.compose:compose-bom:2025.08.00"))
 
     implementation("androidx.core:core-ktx:1.16.0")

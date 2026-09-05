@@ -14,21 +14,29 @@ import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.navigationBarsPadding
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.statusBarsPadding
+import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.outlined.Alarm
 import androidx.compose.material.icons.outlined.Mic
 import androidx.compose.material.icons.outlined.Notifications
 import androidx.compose.material3.Button
+import androidx.compose.material3.FilterChip
+import androidx.compose.material3.FilterChipDefaults
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
+import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableIntStateOf
+import androidx.compose.runtime.mutableStateListOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
@@ -36,6 +44,10 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.unit.dp
 import androidx.core.content.ContextCompat
+import com.navin.personallifeos.ui.theme.CardCream
+import com.navin.personallifeos.ui.theme.InkMuted
+import com.navin.personallifeos.ui.theme.LavenderSoft
+import com.navin.personallifeos.ui.theme.MossSoft
 
 @Composable
 fun OnboardingFlow(onFinish: () -> Unit) {
@@ -51,40 +63,124 @@ private fun WelcomeOnboardingScreen(
     onContinue: () -> Unit,
     onSkip: () -> Unit,
 ) {
+    val selected = remember { mutableStateListOf("Projects", "Diary", "Learning") }
+    val focusAreas = listOf("Projects", "Diary", "Reminders", "Habits", "Learning", "Hobbies", "Goals")
+    val lifeAreas = listOf("Game Development", "App Building", "Filmmaking", "Health", "Reading")
+
     Surface(modifier = Modifier.fillMaxSize(), color = MaterialTheme.colorScheme.background) {
         Column(
-            modifier = Modifier.padding(horizontal = 20.dp, vertical = 34.dp),
-            verticalArrangement = Arrangement.spacedBy(18.dp),
+            modifier = Modifier
+                .fillMaxSize()
+                .statusBarsPadding()
+                .navigationBarsPadding()
+                .verticalScroll(rememberScrollState())
+                .padding(horizontal = 20.dp, vertical = 18.dp),
+            verticalArrangement = Arrangement.spacedBy(16.dp),
         ) {
-            Text("WELCOME", style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.primary)
-            Text("A calmer way to organize your life and growth", style = MaterialTheme.typography.displaySmall)
+            Eyebrow("Welcome to Personal Life OS")
+            PageTitle("A calmer way to organize your life and growth")
             Text(
-                "Plans, reminders, diary moments, hobbies, learning, goals and the projects you’re building — connected in one private system.",
+                "Track plans, reminders, diary moments, hobbies, learning, goals and the projects you’re building — all in one thoughtful system.",
                 style = MaterialTheme.typography.bodyLarge,
+                color = InkMuted,
             )
-            WarmCard(
-                "One capture box",
-                "Write or speak naturally. Personal Life OS sorts the thought after you capture it, not before.",
+
+            Surface(
+                shape = RoundedCornerShape(24.dp),
+                color = CardCream,
+                shadowElevation = 2.dp,
+            ) {
+                Column(
+                    modifier = Modifier.padding(18.dp),
+                    verticalArrangement = Arrangement.spacedBy(10.dp),
+                ) {
+                    Text("What this app helps you do", style = MaterialTheme.typography.titleMedium)
+                    Text(
+                        "Capture anything quickly, see what matters today, remember meaningful moments, and gradually understand how your life is actually moving.",
+                        style = MaterialTheme.typography.bodyMedium,
+                        color = InkMuted,
+                    )
+                    MetaRow("Today", "Plan", "Capture", "Journey", "Me")
+                }
+            }
+
+            Surface(
+                shape = RoundedCornerShape(20.dp),
+                color = MossSoft,
+            ) {
+                Column(
+                    modifier = Modifier.padding(16.dp),
+                    verticalArrangement = Arrangement.spacedBy(10.dp),
+                ) {
+                    Text("What matters most right now?", style = MaterialTheme.typography.titleMedium)
+                    ChipWrap(
+                        labels = focusAreas,
+                        selected = selected.toSet(),
+                        onToggle = { label ->
+                            if (selected.contains(label)) selected.remove(label) else selected.add(label)
+                        },
+                    )
+                }
+            }
+
+            Surface(
+                shape = RoundedCornerShape(20.dp),
+                color = LavenderSoft,
+            ) {
+                Column(
+                    modifier = Modifier.padding(16.dp),
+                    verticalArrangement = Arrangement.spacedBy(10.dp),
+                ) {
+                    Text("A few current life areas", style = MaterialTheme.typography.titleMedium)
+                    ChipWrap(labels = lifeAreas, selected = emptySet(), onToggle = {})
+                    Text(
+                        "You can shape these properly later. This is only to make your first week feel personal.",
+                        style = MaterialTheme.typography.bodySmall,
+                        color = InkMuted,
+                    )
+                }
+            }
+
+            Button(
+                onClick = onContinue,
+                modifier = Modifier.fillMaxWidth(),
+                shape = RoundedCornerShape(18.dp),
+            ) { Text("Continue") }
+
+            TextButton(onClick = onSkip, modifier = Modifier.align(Alignment.CenterHorizontally)) {
+                Text("Maybe later")
+            }
+
+            Text(
+                "Private by default · Built to support your life, not judge it",
+                style = MaterialTheme.typography.labelSmall,
+                color = InkMuted,
+                modifier = Modifier.align(Alignment.CenterHorizontally),
             )
-            WarmCard(
-                "Your life stays connected",
-                "A completed task can update a project, appear in Journey and become part of your weekly review.",
-            )
-            WarmCard(
-                "Support, not judgement",
-                "No guilt-heavy streaks. The app uses gentle signals to help you notice what is moving and what needs care.",
-            )
-            Column(modifier = Modifier.weight(1f), verticalArrangement = Arrangement.Bottom) {
-                Button(
-                    onClick = onContinue,
-                    modifier = Modifier.fillMaxWidth(),
-                    shape = RoundedCornerShape(18.dp),
-                ) { Text("Continue") }
-                OutlinedButton(
-                    onClick = onSkip,
-                    modifier = Modifier.fillMaxWidth().padding(top = 8.dp),
-                    shape = RoundedCornerShape(18.dp),
-                ) { Text("Skip setup") }
+        }
+    }
+}
+
+@Composable
+private fun ChipWrap(
+    labels: List<String>,
+    selected: Set<String>,
+    onToggle: (String) -> Unit,
+) {
+    Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+        labels.chunked(3).forEach { rowLabels ->
+            Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                rowLabels.forEach { label ->
+                    FilterChip(
+                        selected = label in selected,
+                        onClick = { onToggle(label) },
+                        label = { Text(label) },
+                        colors = FilterChipDefaults.filterChipColors(
+                            selectedContainerColor = MaterialTheme.colorScheme.primary.copy(alpha = 0.16f),
+                            selectedLabelColor = MaterialTheme.colorScheme.onSurface,
+                        ),
+                    )
+                }
             }
         }
     }
@@ -104,20 +200,26 @@ private fun PermissionSetupScreen(onFinish: () -> Unit) {
 
     Surface(modifier = Modifier.fillMaxSize(), color = MaterialTheme.colorScheme.background) {
         Column(
-            modifier = Modifier.padding(horizontal = 20.dp, vertical = 34.dp),
+            modifier = Modifier
+                .fillMaxSize()
+                .statusBarsPadding()
+                .navigationBarsPadding()
+                .verticalScroll(rememberScrollState())
+                .padding(horizontal = 20.dp, vertical = 18.dp),
             verticalArrangement = Arrangement.spacedBy(14.dp),
         ) {
-            Text("PERMISSIONS & RELIABILITY", style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.primary)
-            Text("Let the important parts work well", style = MaterialTheme.typography.displaySmall)
+            Eyebrow("Permissions & reliability")
+            PageTitle("Let the important parts work well")
             Text(
-                "You can continue without optional permissions. We’ll always show clearly when a feature is limited.",
-                style = MaterialTheme.typography.bodyMedium,
+                "To make reminders reliable and capture effortless, the app needs a few permissions. You can continue without optional ones.",
+                style = MaterialTheme.typography.bodyLarge,
+                color = InkMuted,
             )
 
             PermissionCard(
                 icon = { Icon(Icons.Outlined.Notifications, contentDescription = null) },
                 title = "Notifications",
-                body = "Needed for reminders and follow-ups.",
+                body = "Needed for reminders, follow-ups and review prompts.",
                 state = if (notificationsGranted) "Allowed" else "Allow",
                 onClick = {
                     if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
@@ -128,7 +230,7 @@ private fun PermissionSetupScreen(onFinish: () -> Unit) {
             PermissionCard(
                 icon = { Icon(Icons.Outlined.Alarm, contentDescription = null) },
                 title = "Exact alarms",
-                body = "Recommended for reminders that must fire at the exact time.",
+                body = "Recommended when a reminder must fire at the exact time.",
                 state = if (exactGranted) "Ready" else "Open settings",
                 onClick = {
                     if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) {
@@ -144,18 +246,29 @@ private fun PermissionSetupScreen(onFinish: () -> Unit) {
             PermissionCard(
                 icon = { Icon(Icons.Outlined.Mic, contentDescription = null) },
                 title = "Microphone",
-                body = "Optional. Enables voice capture in a later interaction pass.",
+                body = "Optional. Lets Universal Capture understand spoken thoughts.",
                 state = if (micGranted) "Allowed" else "Allow",
                 onClick = { micLauncher.launch(Manifest.permission.RECORD_AUDIO) },
             )
 
-            Column(modifier = Modifier.weight(1f), verticalArrangement = Arrangement.Bottom) {
-                Button(
-                    onClick = onFinish,
-                    modifier = Modifier.fillMaxWidth(),
-                    shape = RoundedCornerShape(18.dp),
-                ) { Text("Finish setup") }
-            }
+            AccentCard(
+                eyebrow = "Gentle guidance",
+                title = "We’ll tell you when something is limited",
+                body = "If Android blocks an alarm or background action later, the app should explain why instead of silently failing.",
+                containerColor = LavenderSoft,
+            )
+
+            Button(
+                onClick = onFinish,
+                modifier = Modifier.fillMaxWidth(),
+                shape = RoundedCornerShape(18.dp),
+            ) { Text("Finish setup") }
+
+            OutlinedButton(
+                onClick = onFinish,
+                modifier = Modifier.fillMaxWidth(),
+                shape = RoundedCornerShape(18.dp),
+            ) { Text("Continue with limited features") }
         }
     }
 }
@@ -172,17 +285,23 @@ private fun PermissionCard(
         onClick = onClick,
         modifier = Modifier.fillMaxWidth(),
         shape = RoundedCornerShape(20.dp),
-        color = MaterialTheme.colorScheme.surface,
+        color = CardCream,
+        shadowElevation = 1.dp,
     ) {
         Row(
             modifier = Modifier.padding(16.dp),
             horizontalArrangement = Arrangement.spacedBy(14.dp),
             verticalAlignment = Alignment.CenterVertically,
         ) {
-            icon()
+            Surface(shape = RoundedCornerShape(15.dp), color = MossSoft) {
+                androidx.compose.foundation.layout.Box(
+                    modifier = Modifier.padding(11.dp),
+                    contentAlignment = Alignment.Center,
+                ) { icon() }
+            }
             Column(modifier = Modifier.weight(1f)) {
                 Text(title, style = MaterialTheme.typography.titleMedium)
-                Text(body, style = MaterialTheme.typography.bodySmall)
+                Text(body, style = MaterialTheme.typography.bodySmall, color = InkMuted)
             }
             Text(state, style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.primary)
         }

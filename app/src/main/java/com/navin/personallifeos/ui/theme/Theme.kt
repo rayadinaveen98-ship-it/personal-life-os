@@ -1,7 +1,6 @@
 package com.navin.personallifeos.ui.theme
 
 import android.app.Activity
-import androidx.compose.foundation.isSystemInDarkTheme
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.darkColorScheme
 import androidx.compose.material3.lightColorScheme
@@ -17,25 +16,33 @@ private val LightColors = lightColorScheme(
     tertiary = SoftLavender,
     background = WarmIvory,
     surface = CardCream,
+    surfaceVariant = ColorMist,
     onPrimary = CardCream,
+    onSecondary = Ink,
+    onTertiary = Ink,
     onBackground = Ink,
     onSurface = Ink,
+    onSurfaceVariant = Ink,
 )
 
 private val DarkColors = darkColorScheme(
-    primary = Moss,
+    primary = DarkMoss,
     secondary = MutedGold,
     tertiary = SoftLavender,
     background = DeepInk,
     surface = DarkCard,
-    onPrimary = DarkText,
+    surfaceVariant = DarkCardSoft,
+    onPrimary = CardCream,
+    onSecondary = DeepInk,
+    onTertiary = DeepInk,
     onBackground = DarkText,
     onSurface = DarkText,
+    onSurfaceVariant = DarkTextMuted,
 )
 
 @Composable
 fun PersonalLifeOsTheme(
-    darkTheme: Boolean = isSystemInDarkTheme(),
+    darkTheme: Boolean = false,
     content: @Composable () -> Unit,
 ) {
     val colors = if (darkTheme) DarkColors else LightColors

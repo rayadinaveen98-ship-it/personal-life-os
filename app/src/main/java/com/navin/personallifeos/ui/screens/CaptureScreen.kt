@@ -14,8 +14,12 @@ import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.navigationBarsPadding
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.statusBarsPadding
+import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.outlined.Close
 import androidx.compose.material.icons.outlined.Mic
@@ -36,12 +40,16 @@ import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
+import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.unit.dp
 import androidx.core.content.ContextCompat
 import androidx.hilt.navigation.compose.hiltViewModel
 import com.navin.personallifeos.domain.CaptureKind
+import com.navin.personallifeos.ui.theme.InkMuted
+import com.navin.personallifeos.ui.theme.LavenderSoft
+import com.navin.personallifeos.ui.theme.MossSoft
 import com.navin.personallifeos.ui.viewmodel.CaptureViewModel
 import java.text.DateFormat
 import java.util.Date
@@ -62,45 +70,79 @@ fun CaptureScreen(
 
     Surface(modifier = Modifier.fillMaxSize(), color = MaterialTheme.colorScheme.background) {
         Column(
-            modifier = Modifier.padding(horizontal = 20.dp, vertical = 18.dp),
+            modifier = Modifier
+                .fillMaxSize()
+                .statusBarsPadding()
+                .navigationBarsPadding()
+                .verticalScroll(rememberScrollState())
+                .padding(horizontal = 20.dp, vertical = 12.dp),
             verticalArrangement = Arrangement.spacedBy(16.dp),
         ) {
-            IconButton(onClick = onClose) {
-                Icon(Icons.Outlined.Close, contentDescription = "Close")
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.SpaceBetween,
+                verticalAlignment = Alignment.CenterVertically,
+            ) {
+                IconButton(onClick = onClose) {
+                    Icon(Icons.Outlined.Close, contentDescription = "Close")
+                }
+                Eyebrow("Universal Capture")
             }
-            Text("What’s on your mind?", style = MaterialTheme.typography.displaySmall)
+
+            PageTitle("What’s on your mind?")
             Text(
-                "Type or speak naturally. The app interprets the thought only after you capture it.",
-                style = MaterialTheme.typography.bodyMedium,
+                "Type it, speak it, or drop the thought here. The app helps organize the rest after you capture it.",
+                style = MaterialTheme.typography.bodyLarge,
+                color = InkMuted,
             )
 
             if (suggestion == null) {
-                OutlinedTextField(
-                    value = text,
-                    onValueChange = { text = it },
-                    modifier = Modifier.fillMaxWidth(),
-                    minLines = 7,
+                Surface(
                     shape = RoundedCornerShape(24.dp),
-                    placeholder = { Text("Tomorrow remind me at 10 AM to practice Blender…") },
-                )
-
-                VoiceCaptureButton(
-                    onResult = { spoken -> text = spoken },
-                )
+                    color = MaterialTheme.colorScheme.surface,
+                    shadowElevation = 2.dp,
+                ) {
+                    Column(
+                        modifier = Modifier.padding(14.dp),
+                        verticalArrangement = Arrangement.spacedBy(12.dp),
+                    ) {
+                        Text("Capture anything", style = MaterialTheme.typography.titleMedium)
+                        OutlinedTextField(
+                            value = text,
+                            onValueChange = { text = it },
+                            modifier = Modifier.fillMaxWidth(),
+                            minLines = 6,
+                            shape = RoundedCornerShape(20.dp),
+                            placeholder = { Text("Tomorrow remind me at 10 AM to practice Blender…") },
+                        )
+                        VoiceCaptureButton(onResult = { spoken -> text = spoken })
+                    }
+                }
 
                 MetaRow("Task", "Reminder", "Diary", "Idea")
+
                 Button(
                     onClick = { viewModel.classify(text) },
                     enabled = text.isNotBlank(),
                     modifier = Modifier.fillMaxWidth(),
                     shape = RoundedCornerShape(18.dp),
                 ) { Text("Understand this") }
+
+                AccentCard(
+                    eyebrow = "Try something natural",
+                    title = "“Worked on Kittu for an hour and finally fixed the build.”",
+                    body = "This can become a project update, achievement and Journey event without making you fill a form first.",
+                    containerColor = MossSoft,
+                )
             } else {
                 val current = suggestion ?: return@Column
-                WarmCard(
-                    title = "Understood as ${current.kind.name.lowercase().replaceFirstChar { it.uppercase() }}",
+                AccentCard(
+                    eyebrow = "Understood",
+                    title = current.kind.name.lowercase().replaceFirstChar { it.uppercase() },
                     body = current.title,
+                    containerColor = MossSoft,
                 )
+
                 Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                     CaptureKind.entries.forEach { kind ->
                         FilterChip(
@@ -110,25 +152,32 @@ fun CaptureScreen(
                         )
                     }
                 }
+
                 current.reminderAt?.let {
-                    WarmCard(
-                        title = "Reminder time",
-                        body = DateFormat.getDateTimeInstance(DateFormat.MEDIUM, DateFormat.SHORT).format(Date(it)),
+                    AccentCard(
+                        eyebrow = "Reminder time",
+                        title = DateFormat.getDateTimeInstance(DateFormat.MEDIUM, DateFormat.SHORT).format(Date(it)),
+                        body = "Exact user-facing reminder",
+                        containerColor = LavenderSoft,
                     )
                 }
+
                 message?.let {
                     Text(it, style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.secondary)
                 }
+
                 Button(
                     onClick = viewModel::save,
                     modifier = Modifier.fillMaxWidth(),
                     shape = RoundedCornerShape(18.dp),
-                ) { Text("Save to my life") }
+                ) { Text("Save to my day") }
+
                 OutlinedButton(
                     onClick = viewModel::editAgain,
                     modifier = Modifier.fillMaxWidth(),
                     shape = RoundedCornerShape(18.dp),
                 ) { Text("Edit capture") }
+
                 if (saved && message != null) {
                     OutlinedButton(
                         onClick = onClose,
@@ -172,8 +221,14 @@ private fun VoiceCaptureButton(onResult: (String) -> Unit) {
             override fun onBeginningOfSpeech() { listening = true }
             override fun onRmsChanged(rmsdB: Float) = Unit
             override fun onBufferReceived(buffer: ByteArray?) = Unit
-            override fun onEndOfSpeech() { listening = false; status = "Processing voice…" }
-            override fun onError(error: Int) { listening = false; status = "Voice capture didn’t complete. You can try again or type instead." }
+            override fun onEndOfSpeech() {
+                listening = false
+                status = "Processing voice…"
+            }
+            override fun onError(error: Int) {
+                listening = false
+                status = "Voice capture didn’t complete. You can try again or type instead."
+            }
             override fun onResults(results: Bundle?) {
                 listening = false
                 val best = results?.getStringArrayList(SpeechRecognizer.RESULTS_RECOGNITION)?.firstOrNull()
@@ -201,7 +256,12 @@ private fun VoiceCaptureButton(onResult: (String) -> Unit) {
         onClick = {
             if (!recognizerAvailable) {
                 status = "Speech recognition isn’t available on this device."
-            } else if (ContextCompat.checkSelfPermission(context, Manifest.permission.RECORD_AUDIO) == PackageManager.PERMISSION_GRANTED) {
+            } else if (
+                ContextCompat.checkSelfPermission(
+                    context,
+                    Manifest.permission.RECORD_AUDIO,
+                ) == PackageManager.PERMISSION_GRANTED
+            ) {
                 if (listening) {
                     recognizer?.stopListening()
                     listening = false
@@ -218,5 +278,8 @@ private fun VoiceCaptureButton(onResult: (String) -> Unit) {
         Icon(Icons.Outlined.Mic, contentDescription = null)
         Text(if (listening) " Stop listening" else " Speak instead")
     }
-    status?.let { Text(it, style = MaterialTheme.typography.labelSmall) }
+
+    status?.let {
+        Text(it, style = MaterialTheme.typography.labelSmall, color = InkMuted)
+    }
 }
